@@ -26,3 +26,34 @@ Ante esta situación, el cliente solicitó el desarrollo de un sistema web espec
 El objetivo principal del cliente es consolidar una comunidad digital confiable donde los usuarios puedan realizar transacciones de manera transparente, eficiente y segura, fortaleciendo el mercado del coleccionismo y mejorando la experiencia general de los participantes.
 
 ---
+## 2. Lista de Usuarios del Sistema
+
+* **Administrador**
+  * Supervisa la plataforma y valida autenticidad de cartas.
+  * Permisos: Crear, editar y eliminar usuarios y publicaciones; aprobar ventas.
+
+* **Vendedor**
+  * Publica cartas y gestiona sus ventas o intercambios.
+  * Permisos: Registrar productos, modificar precios, consultar ventas.
+
+* **Cliente**
+  * Navega, compra e intercambia cartas.
+  * Permisos: Buscar cartas, realizar compras o intercambios, dejar reseñas.
+
+* **Usuario**
+  * Rol genérico que permite el acceso inicial al sistema y funcionalidades básicas.
+  * Permisos: Registrarse, completar perfil y consultar catálogo de cartas.
+
+---
+
+## 3. Funciones necesarias
+
+**Incluye:**
+
+* Registro y autenticación de usuarios.
+* Publicación y gestión de cartas.
+* Compra, venta e intercambio de cartas.
+* Validación de autenticidad por el administrador.
+* Notificaciones de estado de publicación y transacción.
+
+---
