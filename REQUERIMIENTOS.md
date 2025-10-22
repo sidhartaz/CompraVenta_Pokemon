@@ -140,3 +140,22 @@ El objetivo principal del cliente es consolidar una comunidad digital confiable 
 * **Baja:** Trueques, subastas
 
 ---
+
+## 9. Flujos Principales
+
+### 9.1 Flujo de Publicación de Carta
+
+1. El vendedor inicia sesión.
+2. Publica una carta con sus detalles.
+3. El administrador revisa la publicación.
+4. Si la aprueba → la carta se muestra en el catálogo.
+5. Si la rechaza → se notifica al vendedor con el motivo.
+
+### 9.2 Flujo de Compra
+
+1. El cliente selecciona una carta disponible.
+2. Realiza la compra o reserva.
+3. Se notifica al vendedor y al administrador.
+4. Se actualiza el inventario y el historial del usuario.
+
+---
