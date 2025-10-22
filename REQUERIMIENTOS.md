@@ -119,3 +119,16 @@ El objetivo principal del cliente es consolidar una comunidad digital confiable 
 * Autentificación / Estado de verificación
 
 ---
+
+## 7. Reglas de Negocio
+
+* El vendedor sólo podrá estar visible al público si paga una suscripción semanal.
+* Los clientes solo pueden publicar y comprar 2 cartas a la semana.
+* Las cartas deben ser verificadas por un administrador antes de publicarse.
+* Si un cliente reserva y no paga en 1 día, se anulará la reserva.
+* Los trueques deben ser aceptados por ambas partes.
+* Las subastas deben ser supervisadas por un administrador.
+* Toda publicación rechazada debe indicar el motivo.
+* El sistema registrará cada cambio de estado (auditoría básica).
+
+---
