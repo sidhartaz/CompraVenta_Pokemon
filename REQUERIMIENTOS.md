@@ -57,3 +57,18 @@ El objetivo principal del cliente es consolidar una comunidad digital confiable 
 * Notificaciones de estado de publicación y transacción.
 
 ---
+
+## 4. Requerimientos Funcionales (RF)
+
+| Código | Requerimiento                                                                                                      | Prioridad |
+| ------ | ------------------------------------------------------------------------------------------------------------------ | --------- |
+| RF-01  | El sistema debe permitir el registro de nuevos usuarios con validación de rol (cliente, vendedor o administrador). | Alta      |
+| RF-02  | El vendedor podrá publicar cartas con nombre, tipo de juego, condición, imagen y precio.                           | Alta      |
+| RF-03  | El administrador debe revisar y aprobar las publicaciones antes de que sean visibles.                              | Alta      |
+| RF-04  | Los clientes podrán realizar compras y reservas de cartas disponibles.                                             | Alta      |
+| RF-05  | El sistema debe registrar un historial de transacciones por usuario.                                               | Alta      |
+| RF-06  | El administrador podrá suspender cuentas o publicaciones que incumplan normas.                                     | Alta      |
+| RF-07  | El vendedor podrá actualizar o eliminar sus publicaciones.                                                         | Media     |
+| RF-08  | El cliente podrá dejar reseñas y calificaciones después de una compra.                                             | Baja      |
+
+---
