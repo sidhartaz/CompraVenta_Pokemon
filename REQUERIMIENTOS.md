@@ -84,3 +84,38 @@ El objetivo principal del cliente es consolidar una comunidad digital confiable 
 | RNF-05 | Mantenibilidad | El código debe estar documentado y seguir buenas prácticas de desarrollo.       | Media     |
 
 ---
+## 6. Datos a Guardar
+
+### Usuarios
+
+* Nombre
+* Rol (Administrador, Vendedor, Cliente, Usuario)
+* Permisos
+* Hash de contraseña
+
+### Clientes
+
+* ID
+* Nombre
+* RUT/Identificación
+* Contacto
+* Historial de compras
+* Método de pago
+
+### Vendedores
+
+* ID
+* Nombre
+* RUT/Identificación
+* Contacto
+* Historial de ventas
+* Estado de suscripción
+
+### Tipo de Carta
+
+* Juego (e.g., Pokémon, Yu-Gi-Oh)
+* Valor estimado
+* Calidad (grading)
+* Autentificación / Estado de verificación
+
+---
