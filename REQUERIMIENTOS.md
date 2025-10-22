@@ -132,3 +132,11 @@ El objetivo principal del cliente es consolidar una comunidad digital confiable 
 * El sistema registrará cada cambio de estado (auditoría básica).
 
 ---
+
+## 8. Prioridades
+
+* **Alta:** Gestión de usuarios, validación de cartas, procesamiento de pagos  
+* **Media:** Reservas  
+* **Baja:** Trueques, subastas
+
+---
