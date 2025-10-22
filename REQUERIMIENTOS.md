@@ -72,3 +72,15 @@ El objetivo principal del cliente es consolidar una comunidad digital confiable 
 | RF-08  | El cliente podrá dejar reseñas y calificaciones después de una compra.                                             | Baja      |
 
 ---
+
+## 5. Requerimientos No Funcionales (RNF)
+
+| Código | Categoría      | Requerimiento                                                                   | Prioridad |
+| ------ | -------------- | ------------------------------------------------------------------------------- | --------- |
+| RNF-01 | Seguridad      | Las contraseñas deben almacenarse cifradas y la comunicación usar HTTPS.        | Alta      |
+| RNF-02 | Rendimiento    | El tiempo de respuesta máximo debe ser inferior a 2 segundos por solicitud.     | Media     |
+| RNF-03 | Disponibilidad | El sistema debe mantener un 99 % de disponibilidad mensual.                     | Alta      |
+| RNF-04 | Escalabilidad  | La aplicación debe permitir la incorporación futura de más juegos y categorías. | Media     |
+| RNF-05 | Mantenibilidad | El código debe estar documentado y seguir buenas prácticas de desarrollo.       | Media     |
+
+---
