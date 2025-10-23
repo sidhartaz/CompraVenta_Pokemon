@@ -256,3 +256,11 @@ Proponemos el desarrollo de una plataforma web (con potencial para futura aplica
 * **Actualizaciones de Seguridad:** Aplicación periódica de parches y auditorías de seguridad para proteger la integridad de los datos de los usuarios y las transacciones financieras.
 
 ---
+
+## 16. Próximos Pasos
+
+* Estabilización y Mantenimiento Correctivo: resolver bugs y problemas de rendimiento detectados en las primeras semanas de uso real.
+* Mejoras visuales y experiencia de usuario: optimización de UI/UX basada en retroalimentación de usuarios.
+* Evaluación de futuras funcionalidades:
+  * Aplicación móvil nativa para gestión y compra/venta en movimiento.
+  * Integración de motor de búsqueda avanzado con filtros por edición, rareza y valoración profesional de cartas.
