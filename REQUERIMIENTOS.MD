@@ -247,3 +247,12 @@ Proponemos el desarrollo de una plataforma web (con potencial para futura aplica
 **Ganancia Financiera:** Generación de un ingreso predecible y recurrente a través del modelo de suscripción semanal para los vendedores.
 
 ---
+
+## 15. Soporte y Mantenimiento
+
+* **Monitoreo:** Implementación de administradores para asegurar la disponibilidad y detectar errores de rendimiento o problemas de seguridad de forma proactiva.
+* **Mantenimiento correctivo:** Equipo dedicado a la resolución de bugs y problemas reportados.
+* **Mantenimiento evolutivo:** La plataforma se mantendrá en constante evolución, incorporando nuevas funcionalidades y adaptándose a las necesidades cambiantes del mercado coleccionista.
+* **Actualizaciones de Seguridad:** Aplicación periódica de parches y auditorías de seguridad para proteger la integridad de los datos de los usuarios y las transacciones financieras.
+
+---
