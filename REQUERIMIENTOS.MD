@@ -171,3 +171,56 @@ El objetivo principal del cliente es consolidar una comunidad digital confiable 
 * Arquitectura: Cliente–Servidor con API REST
 
 ---
+
+## 12. Presupuesto Estimado
+
+**1. Desarrollo del MVP (4–6 semanas)**
+
+| Concepto                            | Detalle                                                        | Costo aproximado |
+| ---------------------------------- | -------------------------------------------------------------- | --------------- |
+| Backend + API                       | Node.js + MongoDB + Redis + JWT                                 | $1.500.000 CLP (~US$1.650) |
+| Frontend                             | React.js/Vue.js responsivo                                     | $1.200.000 CLP (~US$1.320) |
+| Integración y pruebas               | Testing, correcciones y validaciones                            | $500.000 CLP (~US$550) |
+| Documentación y GitHub               | README, requisitos, diseño y flujo de desarrollo               | $200.000 CLP (~US$220) |
+
+**Subtotal Desarrollo MVP:** $3.400.000 CLP (~US$3.740)
+
+---
+
+**2. Infraestructura (mensual)**
+
+| Concepto                  | Detalle                                           | Costo mensual aproximado |
+| ------------------------- | ------------------------------------------------- | ----------------------- |
+| Hosting / Servidor Cloud   | Azure/AWS (1 instancia para API + DB)            | $100.000 CLP (~US$110) |
+| Base de datos (MongoDB)    | Servicio gestionado o VPS                         | $50.000 CLP (~US$55) |
+| Redis (cache)              | Servicio gestionado o VPS                         | $20.000 CLP (~US$22) |
+| Dominio y certificados SSL | Dominio .cl y certificado SSL                     | $15.000 CLP (~US$16.5) |
+
+**Subtotal Infraestructura mensual:** $185.000 CLP (~US$203.5)
+
+---
+
+**3. Suscripción y monetización**
+
+* Cliente/usuario: gratis  
+* Vendedor: $3.000 CLP / semana (~US$3.3 / semana, ~$12.000 CLP / mes ~US$13.2 / mes)  
+
+---
+
+**4. Mantenimiento y Soporte (mensual)**
+
+| Concepto                  | Detalle                                | Costo mensual aproximado |
+| ------------------------- | -------------------------------------- | ----------------------- |
+| Monitoreo y soporte       | Resolución de bugs, uptime y seguridad | $150.000 CLP (~US$165) |
+| Actualizaciones y mejoras | Funcionalidades y optimización         | $100.000 CLP (~US$110) |
+
+**Subtotal Mantenimiento:** $250.000 CLP (~US$275)
+
+---
+
+**5. Total estimado primer mes:**  
+Desarrollo MVP + infraestructura + mantenimiento inicial: ~$3.400.000 + $185.000 + $250.000 ≈ **$3.835.000 CLP (~US$4.218.5)**
+
+> Este presupuesto incluye desarrollo, infraestructura y mantenimiento básico, considerando la monetización vía suscripción semanal de vendedores.
+
+---
