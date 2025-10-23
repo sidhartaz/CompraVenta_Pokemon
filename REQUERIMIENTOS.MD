@@ -236,3 +236,14 @@ Proponemos el desarrollo de una plataforma web (con potencial para futura aplica
 * Fase III: Estabilización Continua – Pruebas de carga, mejoras de experiencia de usuario y optimización de rendimiento.
 
 ---
+
+## 14. Criterios de Aceptación y Ganancia
+
+* El flujo completo de registro de usuario y validación de rol debe ejecutarse correctamente en el 100% de las pruebas.
+* La interfaz debe ser completamente responsiva y funcional en Chrome, Firefox y Safari.
+* El sistema debe soportar un mínimo de 100 usuarios concurrentes sin degradación de rendimiento.
+
+**Valor para la Comunidad:** Establecer la plataforma como el mercado digital de confianza para coleccionistas, eliminando el riesgo de fraude.  
+**Ganancia Financiera:** Generación de un ingreso predecible y recurrente a través del modelo de suscripción semanal para los vendedores.
+
+---
