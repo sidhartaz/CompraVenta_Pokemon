@@ -224,3 +224,15 @@ Desarrollo MVP + infraestructura + mantenimiento inicial: ~$3.400.000 + $185.000
 > Este presupuesto incluye desarrollo, infraestructura y mantenimiento básico, considerando la monetización vía suscripción semanal de vendedores.
 
 ---
+
+## 13. Propuesta Formal y Cronograma de Trabajo
+
+Proponemos el desarrollo de una plataforma web (con potencial para futura aplicación móvil) para la comunidad de coleccionistas. La clave de esta propuesta radica en la seguridad transaccional y la validación de la autenticidad de las cartas, diferenciándonos de plataformas de venta general. El enfoque es crear un mercado vertical y especializado.
+
+**Cronograma de Alto Nivel:**
+
+* Fase I: MVP Hasta 6 de Noviembre – Módulos de Prioridad Alta y Media: Base de datos, seguridad (Login/Registro), Gestión de Usuarios, Publicación y Validación de Cartas, Procesamiento de Pagos.
+* Fase II: Expansión Post 6 de Noviembre – Módulos de Prioridad Baja: Implementación y optimización de Trueques y Subastas.
+* Fase III: Estabilización Continua – Pruebas de carga, mejoras de experiencia de usuario y optimización de rendimiento.
+
+---
