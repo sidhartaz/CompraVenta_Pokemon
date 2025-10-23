@@ -159,3 +159,15 @@ El objetivo principal del cliente es consolidar una comunidad digital confiable 
 4. Se actualiza el inventario y el historial del usuario.
 
 ---
+
+## 10. Requerimientos Técnicos
+
+* Lenguaje backend: Node.js (para MongoDB + Redis + JWT)
+* Base de datos: MongoDB
+* Cache: Redis para mejorar rendimiento
+* Frontend: React.js o Vue.js (interfaz responsiva)
+* Servidor: Localhost en desarrollo; Azure/AWS en producción
+* Control de versiones: Git y GitHub
+* Arquitectura: Cliente–Servidor con API REST
+
+---
