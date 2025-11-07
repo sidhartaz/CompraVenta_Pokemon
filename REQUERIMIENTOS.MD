@@ -39,8 +39,6 @@ El objetivo principal del cliente es consolidar una comunidad digital confiable 
 * **Cliente**
   * Navega, compra e intercambia cartas.
   * Permisos: Buscar cartas, realizar compras o intercambios, dejar reseñas.
-
-* **Usuario**
   * Rol genérico que permite el acceso inicial al sistema y funcionalidades básicas.
   * Permisos: Registrarse, completar perfil y consultar catálogo de cartas.
 
@@ -86,12 +84,6 @@ El objetivo principal del cliente es consolidar una comunidad digital confiable 
 ---
 ## 6. Datos a Guardar
 
-### Usuarios
-
-* Nombre
-* Rol (Administrador, Vendedor, Cliente, Usuario)
-* Permisos
-* Hash de contraseña
 
 ### Clientes
 
@@ -127,7 +119,7 @@ El objetivo principal del cliente es consolidar una comunidad digital confiable 
 * Las cartas deben ser verificadas por un administrador antes de publicarse.
 * Si un cliente reserva y no paga en 1 día, se anulará la reserva.
 * Los trueques deben ser aceptados por ambas partes.
-* Las subastas deben ser supervisadas por un administrador.
+* Las subastas serán hechas por cualquier cliente, siempre y cuando sea aceptada por administrador
 * Toda publicación rechazada debe indicar el motivo.
 * El sistema registrará cada cambio de estado (auditoría básica).
 
