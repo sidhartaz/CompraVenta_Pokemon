@@ -33,7 +33,7 @@ Este sistema propone una **plataforma unificada** con validación, reputación y
 - Desarrollar un **sistema web seguro y escalable** para coleccionistas.  
 - Implementar un **sistema de validación de autenticidad** de cartas.  
 - Facilitar **compras, intercambios y subastas** dentro de un entorno controlado.  
-- Promover una **comunidad confiable** con roles definidos (Administrador, Vendedor, Cliente, Usuario).
+- Promover una **comunidad confiable** con roles definidos (Administrador, Vendedor, Cliente).
 
 ---
 
@@ -41,11 +41,9 @@ Este sistema propone una **plataforma unificada** con validación, reputación y
 
 | Rol | Descripción | Permisos principales |
 |-----|--------------|----------------------|
-| **Administrador** | Supervisa la plataforma y valida autenticidad | Crear/editar/eliminar usuarios y publicaciones |
+| **Administrador** | Supervisa la plataforma y valida autenticidad | eliminar usuarios y publicaciones |
 | **Vendedor** | Publica y gestiona cartas | Subir cartas, fijar precios, revisar ventas |
-| **Cliente** | Compra e intercambia cartas | Comprar, reservar, calificar vendedores |
-| **Usuario** | Acceso básico | Registrarse, explorar catálogo |
-
+| **Cliente** | Compra e intercambia cartas, Acceso básico  | Comprar, reservar, calificar vendedores, Registrarse, explorar catálogo|
 ---
 
 ## Funcionalidades Principales
