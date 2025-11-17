@@ -20,7 +20,6 @@ Ante esta situación, el cliente solicitó el desarrollo de un sistema web espec
 
 * Crear un perfil personal con información básica y su inventario de cartas.
 * Publicar cartas disponibles para la venta o intercambio.
-* Participar en subastas y trueques de manera controlada.
 * Acceder a un sistema de validación y reputación que garantice la seguridad de las operaciones.
 
 El objetivo principal del cliente es consolidar una comunidad digital confiable donde los usuarios puedan realizar transacciones de manera transparente, eficiente y segura, fortaleciendo el mercado del coleccionismo y mejorando la experiencia general de los participantes.
