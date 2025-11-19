@@ -1,8 +1,1 @@
-@startuml 
-Cliente -> Sistema: Seleccionar carta
-Sistema -> Vendedor: Notificar pedido
-Sistema -> Administrador: Validar transacción
-Administrador -> Sistema: Aprobación OK
-Sistema -> Cliente: Confirmar compra
-Sistema -> Vendedor: Confirmar venta
-@enduml
+
