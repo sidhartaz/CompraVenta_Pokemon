@@ -3,14 +3,18 @@ const path = require('path');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
+const jwt = require('jsonwebtoken');
 
+const { authRequired, requireRole } = require('./middlewares/auth');
+
+// Cargar variables de entorno
 dotenv.config();
 
 // Inicializar app
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- 1. MIDDLEWARE ---
+// --- 1. MIDDLEWARES ---
 app.use(express.json());                          // Para JSON (Postman, fetch, etc.)
 app.use(express.urlencoded({ extended: true }));  // Por si envías formularios
 app.use(express.static(path.join(__dirname, '..', 'frontend', 'public')));
@@ -34,7 +38,7 @@ mongoose
     process.exit(1);
   });
 
-// --- 4. RUTAS DE API ---
+// --- 4. RUTAS DE AUTENTICACIÓN ---
 
 // Registro
 app.post('/api/register', async (req, res) => {
@@ -54,24 +58,34 @@ app.post('/api/register', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    const validRoles = ['cliente', 'vendedor'];
+    const finalRole = validRoles.includes(role) ? role : 'cliente';
+
     const newUser = new User({
       name,
       email,
       password: hashedPassword,
-      role: role || 'cliente',
+      role: finalRole,
     });
 
     await newUser.save();
 
     console.log('✅ Usuario creado:', email);
-    return res.status(201).json({ message: 'Usuario registrado con éxito.' });
+    return res.status(201).json({
+      message: 'Usuario registrado con éxito.',
+      user: {
+        id: newUser._id,
+        email: newUser.email,
+        role: newUser.role,
+      },
+    });
   } catch (error) {
     console.error('Error registro:', error);
     return res.status(500).json({ message: 'Error del servidor' });
   }
 });
 
-// Login
+// Login con JWT
 app.post('/api/login', async (req, res) => {
   console.log('🔑 Login body recibido:', req.body);
 
@@ -92,8 +106,18 @@ app.post('/api/login', async (req, res) => {
       return res.status(400).json({ message: 'Credenciales inválidas' });
     }
 
+    const JWT_SECRET = process.env.JWT_SECRET || 'camilo7532';
+
+    // Creamos el token con id y role
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
     return res.json({
       message: 'Login exitoso',
+      token,
       user: {
         id: user._id,
         name: user.name,
@@ -107,7 +131,24 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// --- RUTAS DE CARTAS ---
+// --- 5. ENDPOINTS PROTEGIDOS DE EJEMPLO (para probar JWT + ROLES) ---
+
+// Cualquier usuario autenticado (cliente o vendedor)
+app.get('/api/me', authRequired, (req, res) => {
+  res.json({
+    message: 'Usuario autenticado',
+    user: req.user, // { id, role, iat, exp }
+  });
+});
+
+// Solo vendedores (rol "vendedor") pueden acceder
+app.get('/api/admin/ventas', authRequired, requireRole('vendedor'), (req, res) => {
+  res.json({
+    message: 'Solo vendedores pueden ver esta información',
+  });
+});
+
+// --- 6. RUTAS DE CARTAS ---
 
 // Buscar cartas por nombre (para el catálogo / buscador)
 app.get('/api/cards/search', async (req, res) => {
@@ -205,12 +246,13 @@ app.get('/api/cards/:id', async (req, res) => {
   }
 });
 
-// --- 5. RUTA FALLBACK (para que cualquier ruta del frontend cargue index.html) ---
+// --- 7. RUTA FALLBACK (para que cualquier ruta del frontend cargue index.html) ---
 app.get(/(.*)/, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'public', 'index.html'));
 });
 
-// --- 6. INICIAR SERVIDOR ---
+// --- 8. INICIAR SERVIDOR ---
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
 });
+
