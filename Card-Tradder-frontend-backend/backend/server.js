@@ -6,6 +6,7 @@ const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
 
 const { authRequired, requireRole } = require('./middlewares/auth');
+const { client: redisClient, connectRedis } = require('./redisClient');
 
 // Cargar variables de entorno
 dotenv.config();
@@ -37,6 +38,11 @@ mongoose
     console.error('   Detalle:', err.message);
     process.exit(1);
   });
+
+// Conectar a Redis (no detiene la app si falla)
+connectRedis().catch((err) => {
+  console.error('No se pudo conectar a Redis:', err.message);
+});
 
 // --- 4. RUTAS DE AUTENTICACIÓN ---
 
@@ -148,10 +154,37 @@ app.get('/api/admin/ventas', authRequired, requireRole('vendedor'), (req, res) =
   });
 });
 
-// --- 6. RUTAS DE CARTAS ---
+// --- 6. MIDDLEWARE DE CACHE PARA /api/cards/search ---
 
-// Buscar cartas por nombre (para el catálogo / buscador)
-app.get('/api/cards/search', async (req, res) => {
+async function cacheCardsSearch(req, res, next) {
+  try {
+    const query = req.query.q || '';
+
+    if (!query) {
+      return next(); // sin query, nada que cachear
+    }
+
+    const cacheKey = `cards:search:${query.toLowerCase()}`;
+
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      res.setHeader('X-Cache', 'HIT');
+      return res.json(JSON.parse(cached));
+    }
+
+    // Guardamos la key para después
+    res.locals.cacheKey = cacheKey;
+    next();
+  } catch (err) {
+    console.error('Error en cacheCardsSearch:', err.message);
+    next(); // si Redis falla, seguimos normal
+  }
+}
+
+// --- 7. RUTAS DE CARTAS ---
+
+// Buscar cartas por nombre (para el catálogo / buscador) con cache
+app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
   try {
     const query = req.query.q || '';
 
@@ -189,7 +222,23 @@ app.get('/api/cards/search', async (req, res) => {
       });
     }
 
-    return res.json({ results });
+    const responseBody = { results };
+
+    // Guardar en cache para próximas llamadas
+    if (res.locals.cacheKey) {
+      try {
+        await redisClient.set(
+          res.locals.cacheKey,
+          JSON.stringify(responseBody),
+          { EX: 60 } // 60 segundos
+        );
+      } catch (err) {
+        console.error('Error guardando en Redis:', err.message);
+      }
+      res.setHeader('X-Cache', 'MISS');
+    }
+
+    return res.json(responseBody);
   } catch (error) {
     console.error('Error en /api/cards/search:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
@@ -246,13 +295,12 @@ app.get('/api/cards/:id', async (req, res) => {
   }
 });
 
-// --- 7. RUTA FALLBACK (para que cualquier ruta del frontend cargue index.html) ---
+// --- 8. RUTA FALLBACK (para que cualquier ruta del frontend cargue index.html) ---
 app.get(/(.*)/, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'public', 'index.html'));
 });
 
-// --- 8. INICIAR SERVIDOR ---
+// --- 9. INICIAR SERVIDOR ---
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
 });
-
