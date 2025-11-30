@@ -154,7 +154,111 @@ app.get('/api/admin/ventas', authRequired, requireRole('vendedor'), (req, res) =
   });
 });
 
-// --- 6. MIDDLEWARE DE CACHE PARA /api/cards/search ---
+// --- 6. CRUD LISTINGS (recurso principal) ---
+
+// Obtener todas las publicaciones
+app.get('/api/listings', async (req, res) => {
+  try {
+    const listings = await Listing.find()
+      .populate('sellerId')
+      .lean();
+
+    return res.json(listings);
+  } catch (error) {
+    console.error('Error en GET /api/listings:', error);
+    return res.status(500).json({ message: 'Error del servidor' });
+  }
+});
+
+// Obtener una publicación por ID
+app.get('/api/listings/:id', async (req, res) => {
+  try {
+    const listing = await Listing.findById(req.params.id)
+      .populate('sellerId')
+      .lean();
+
+    if (!listing) {
+      return res.status(404).json({ message: 'Listing no encontrado' });
+    }
+
+    return res.json(listing);
+  } catch (error) {
+    console.error('Error en GET /api/listings/:id:', error);
+    return res.status(500).json({ message: 'Error del servidor' });
+  }
+});
+
+// Crear una publicación (solo vendedores)
+app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res) => {
+  try {
+    const { cardId, price, condition } = req.body;
+
+    if (!cardId || !price || !condition) {
+      return res.status(400).json({ message: 'Faltan datos: cardId, price, condition' });
+    }
+
+    const newListing = new Listing({
+      cardId,
+      price,
+      condition,
+      sellerId: req.user.id, // del token JWT
+    });
+
+    await newListing.save();
+
+    return res.status(201).json({
+      message: 'Listing creado con éxito',
+      listing: newListing,
+    });
+  } catch (error) {
+    console.error('Error en POST /api/listings:', error);
+    return res.status(500).json({ message: 'Error del servidor' });
+  }
+});
+
+// Actualizar una publicación (solo vendedores)
+app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, res) => {
+  try {
+    const { price, condition } = req.body;
+
+    const listing = await Listing.findById(req.params.id);
+    if (!listing) {
+      return res.status(404).json({ message: 'Listing no encontrado' });
+    }
+
+    if (price !== undefined) listing.price = price;
+    if (condition !== undefined) listing.condition = condition;
+
+    await listing.save();
+
+    return res.json({
+      message: 'Listing actualizado con éxito',
+      listing,
+    });
+  } catch (error) {
+    console.error('Error en PUT /api/listings/:id:', error);
+    return res.status(500).json({ message: 'Error del servidor' });
+  }
+});
+
+// Eliminar una publicación (solo vendedores)
+app.delete('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, res) => {
+  try {
+    const listing = await Listing.findById(req.params.id);
+    if (!listing) {
+      return res.status(404).json({ message: 'Listing no encontrado' });
+    }
+
+    await listing.deleteOne();
+
+    return res.json({ message: 'Listing eliminado con éxito' });
+  } catch (error) {
+    console.error('Error en DELETE /api/listings/:id:', error);
+    return res.status(500).json({ message: 'Error del servidor' });
+  }
+});
+
+// --- 7. MIDDLEWARE DE CACHE PARA /api/cards/search ---
 
 async function cacheCardsSearch(req, res, next) {
   try {
@@ -181,7 +285,7 @@ async function cacheCardsSearch(req, res, next) {
   }
 }
 
-// --- 7. RUTAS DE CARTAS ---
+// --- 8. RUTAS DE CARTAS ---
 
 // Buscar cartas por nombre (para el catálogo / buscador) con cache
 app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
@@ -295,12 +399,12 @@ app.get('/api/cards/:id', async (req, res) => {
   }
 });
 
-// --- 8. RUTA FALLBACK (para que cualquier ruta del frontend cargue index.html) ---
+// --- 9. RUTA FALLBACK (para que cualquier ruta del frontend cargue index.html) ---
 app.get(/(.*)/, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'public', 'index.html'));
 });
 
-// --- 9. INICIAR SERVIDOR ---
+// --- 10. INICIAR SERVIDOR ---
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
 });
