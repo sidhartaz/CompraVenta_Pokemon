@@ -1,0 +1,216 @@
+const express = require('express');
+const path = require('path');
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const dotenv = require('dotenv');
+
+dotenv.config();
+
+// Inicializar app
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// --- 1. MIDDLEWARE ---
+app.use(express.json());                          // Para JSON (Postman, fetch, etc.)
+app.use(express.urlencoded({ extended: true }));  // Por si envías formularios
+app.use(express.static(path.join(__dirname, '..', 'frontend', 'public')));
+
+// --- 2. IMPORTAR MODELOS ---
+const User = require('./models/User');
+const Card = require('./models/Card');
+const Listing = require('./models/Listing');
+const Seller = require('./models/Seller');
+
+// --- 3. CONEXIÓN A BASE DE DATOS ---
+const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/cardtrader';
+
+mongoose
+  .connect(mongoUri)
+  .then(() => console.log('✅ Base de Datos MongoDB conectada'))
+  .catch((err) => {
+    console.error('❌ ERROR DE CONEXIÓN A MONGO DB:');
+    console.error('   Verifica que MongoDB esté corriendo y que la variable MONGO_URI en tu archivo .env sea correcta.');
+    console.error('   Detalle:', err.message);
+    process.exit(1);
+  });
+
+// --- 4. RUTAS DE API ---
+
+// Registro
+app.post('/api/register', async (req, res) => {
+  console.log('📩 Registro:', req.body.email);
+  const { name, email, password, role } = req.body;
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'Faltan datos' });
+  }
+
+  try {
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ message: 'El correo ya existe' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const newUser = new User({
+      name,
+      email,
+      password: hashedPassword,
+      role: role || 'cliente',
+    });
+
+    await newUser.save();
+
+    console.log('✅ Usuario creado:', email);
+    return res.status(201).json({ message: 'Usuario registrado con éxito.' });
+  } catch (error) {
+    console.error('Error registro:', error);
+    return res.status(500).json({ message: 'Error del servidor' });
+  }
+});
+
+// Login
+app.post('/api/login', async (req, res) => {
+  console.log('🔑 Login body recibido:', req.body);
+
+  const { email, password } = req.body || {};
+
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Faltan email o contraseña' });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: 'Credenciales inválidas' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Credenciales inválidas' });
+    }
+
+    return res.json({
+      message: 'Login exitoso',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error('Error login:', error);
+    return res.status(500).json({ message: 'Error del servidor' });
+  }
+});
+
+// --- RUTAS DE CARTAS ---
+
+// Buscar cartas por nombre (para el catálogo / buscador)
+app.get('/api/cards/search', async (req, res) => {
+  try {
+    const query = req.query.q || '';
+
+    if (!query) {
+      return res.json({ results: [] });
+    }
+
+    // Buscar cartas cuyo nombre contenga el texto (insensible a mayúsculas)
+    const cards = await Card.find({
+      name: { $regex: query, $options: 'i' },
+    })
+      .limit(20)
+      .lean();
+
+    if (!cards.length) {
+      return res.json({ results: [] });
+    }
+
+    const results = [];
+
+    for (const card of cards) {
+      const listings = await Listing.find({ cardId: card.id })
+        .populate('sellerId')
+        .lean();
+
+      const formattedListings = listings.map((lst) => ({
+        price: lst.price,
+        condition: lst.condition,
+        seller: lst.sellerId,
+      }));
+
+      results.push({
+        card,
+        listings: formattedListings,
+      });
+    }
+
+    return res.json({ results });
+  } catch (error) {
+    console.error('Error en /api/cards/search:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Autocomplete (para sugerencias de nombres desde el frontend)
+app.get('/api/cards/autocomplete', async (req, res) => {
+  try {
+    const q = req.query.q || '';
+    if (!q) return res.json([]);
+
+    const items = await Card.find({
+      name: new RegExp('^' + q, 'i'),
+    })
+      .limit(8)
+      .select('id name images')
+      .lean();
+
+    return res.json(items);
+  } catch (error) {
+    console.error('Error en /api/cards/autocomplete:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Detalle de una carta por id TCG (ej: base1-58, xy7-54, etc.)
+app.get('/api/cards/:id', async (req, res) => {
+  try {
+    const cardId = req.params.id;
+
+    const card = await Card.findOne({ id: cardId }).lean();
+    if (!card) {
+      return res.json({ card: null, listings: [] });
+    }
+
+    const listings = await Listing.find({ cardId })
+      .populate('sellerId')
+      .lean();
+
+    const formattedListings = listings.map((lst) => ({
+      price: lst.price,
+      condition: lst.condition,
+      seller: lst.sellerId,
+    }));
+
+    return res.json({
+      card,
+      listings: formattedListings,
+    });
+  } catch (error) {
+    console.error('Error en /api/cards/:id:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// --- 5. RUTA FALLBACK (para que cualquier ruta del frontend cargue index.html) ---
+app.get(/(.*)/, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'frontend', 'public', 'index.html'));
+});
+
+// --- 6. INICIAR SERVIDOR ---
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+});

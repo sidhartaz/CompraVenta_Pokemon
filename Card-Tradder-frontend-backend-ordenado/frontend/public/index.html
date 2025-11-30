@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Trader - Plataforma de Coleccionistas</title>
+    <!-- Fuentes e Iconos -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Tu CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- ======================================================= -->
+    <!-- 1. SECCIÓN DE LOGIN / REGISTRO (LOGICA NUEVA)           -->
+    <!-- ======================================================= -->
+    <div class="auth-container" id="auth-section">
+        <div class="auth-background">
+            <div class="circle c1"></div>
+            <div class="circle c2"></div>
+        </div>
+    
+        <!-- LOGIN -->
+        <div class="auth-card" id="form-login">
+            <div class="auth-header">
+                <div class="logo-auth"><i class="fa-solid fa-layer-group"></i></div>
+                <h2>Bienvenido</h2>
+                <p>Ingresa a tu cuenta</p>
+            </div>
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>Correo Electrónico</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fa-regular fa-envelope"></i>
+                        <input type="email" id="login-email" class="form-input pl-4" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" id="login-pass" class="form-input pl-4" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn-block">Iniciar Sesión</button>
+            </form>
+            <div class="auth-footer">
+                <p>¿No tienes cuenta? <a onclick="toggleAuth('register')">Regístrate gratis</a></p>
+            </div>
+        </div>
+    
+        <!-- REGISTRO -->
+        <div class="auth-card hidden" id="form-register">
+            <div class="auth-header">
+                <h2>Crear Cuenta</h2>
+                <p>Únete a la comunidad</p>
+            </div>
+            <form onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label>Nombre Completo</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fa-regular fa-user"></i>
+                        <input type="text" id="reg-name" class="form-input pl-4" placeholder="Tu nombre" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Correo Electrónico</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fa-regular fa-envelope"></i>
+                        <input type="email" id="reg-email" class="form-input pl-4" placeholder="email@ejemplo.com" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Quiero ser:</label>
+                    <div class="role-selector">
+                        <label class="radio-card">
+                            <input type="radio" name="role" value="cliente" checked>
+                            <div class="card-content">
+                                <i class="fa-solid fa-bag-shopping"></i><span>Cliente</span>
+                            </div>
+                        </label>
+                        <label class="radio-card">
+                            <input type="radio" name="role" value="vendedor">
+                            <div class="card-content">
+                                <i class="fa-solid fa-store"></i><span>Vendedor</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" id="reg-pass" class="form-input pl-4" required>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-block">Crear Cuenta</button>
+            </form>
+            <div class="auth-footer">
+                <p>¿Ya tienes cuenta? <a onclick="toggleAuth('login')">Inicia Sesión</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================= -->
+    <!-- 2. APP PRINCIPAL (ESTÉTICA ANTIGUA RESTAURADA)          -->
+    <!-- ======================================================= -->
+    <div class="dashboard-container hidden" id="main-app">
+        
+        <!-- SIDEBAR (Con lógica de logout agregada) -->
+        <aside class="sidebar">
+            <div class="logo-container">
+                <div class="logo-placeholder"><i class="fa-solid fa-layer-group"></i> Card Trader</div>
+            </div>
+
+            <nav class="menu">
+                <a href="#" class="menu-item active" onclick="showView('home', this)">
+                    <i class="fa-solid fa-house"></i> Inicio
+                </a>
+                <a href="#" class="menu-item" onclick="showView('catalog', this)">
+                    <i class="fa-solid fa-magnifying-glass"></i> Buscar Cartas
+                </a>
+                
+                <div class="menu-separator">GESTIÓN</div>
+                
+                <a href="#" class="menu-item" onclick="showView('dashboard', this)">
+                    <i class="fa-solid fa-box-open"></i> Mis Cartas
+                </a>
+                <a href="#" class="menu-item" onclick="toggleModal()">
+                    <i class="fa-solid fa-plus-circle"></i> Publicar Carta
+                </a>
+                <a href="#" class="menu-item"><i class="fa-solid fa-handshake"></i> Intercambios</a>
+                <a href="#" class="menu-item"><i class="fa-solid fa-clock-rotate-left"></i> Historial</a>
+                
+                <div class="menu-separator">CUENTA</div>
+                
+                <a href="#" class="menu-item" onclick="showView('dashboard', this)">
+                    <i class="fa-solid fa-user"></i> Mi Perfil
+                </a>
+                <!-- Agregado Logout -->
+                <a href="#" class="menu-item" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión</a>
+            </nav>
+
+            <div class="user-footer">
+                <div class="user-avatar-small"><i class="fa-solid fa-user"></i></div>
+                <div class="user-info-mini">
+                    <span id="user-display-name">Usuario</span>
+                    <a href="#" onclick="logout()">Cerrar sesión</a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <main class="main-content">
+            
+            <header class="top-header">
+                <h1 id="page-title">Bienvenido</h1>
+                <div class="header-actions">
+                    <button class="btn-secondary"><i class="fa-regular fa-bell"></i></button>
+                    <button class="btn-primary" onclick="toggleModal()">
+                        <i class="fa-solid fa-plus"></i> Nueva Publicación
+                    </button>
+                </div>
+            </header>
+
+            <!-- VISTA HOME (Restaurada) -->
+            <div id="view-home" class="view-section">
+                <div class="hero-banner">
+                    <div class="hero-content">
+                        <h2>El Mercado de Coleccionistas</h2>
+                        <p>Compra, vende e intercambia cartas de Pokémon, Yu-Gi-Oh! y Mitos y Leyendas con seguridad garantizada.</p>
+                        <button class="btn-white" onclick="showView('catalog', document.querySelector('.menu-item:nth-child(2)'))">
+                            Explorar Cartas
+                        </button>
+                    </div>
+                    <div class="hero-decoration"><i class="fa-solid fa-layer-group"></i></div>
+                </div>
+
+                <div class="categories-row">
+                    <div class="category-pill active"><i class="fa-solid fa-fire"></i> Tendencias</div>
+                    <div class="category-pill"><i class="fa-solid fa-bolt"></i> Pokémon</div>
+                    <div class="category-pill"><i class="fa-solid fa-dragon"></i> Yu-Gi-Oh!</div>
+                    <div class="category-pill"><i class="fa-solid fa-scroll"></i> Mitos y Leyendas</div>
+                </div>
+
+                <div class="section-header">
+                    <h3>Últimas Publicaciones</h3>
+                    <a href="#" onclick="showView('catalog')">Ver todo</a>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="market-card">
+                        <div class="market-img-box">
+                            <img src="charizard.png" alt="Charizard">
+                            <span class="badge-overlay new">NUEVO</span>
+                        </div>
+                        <div class="market-info">
+                            <span class="card-game-badge">Pokémon TCG</span>
+                            <h4 class="market-title">Charizard Base Set 1st Ed.</h4>
+                            <div class="market-meta"><span class="condition-badge">NM</span><span class="market-price">$150.000</span></div>
+                        </div>
+                    </div>
+                    <!-- Más cartas de ejemplo estéticas -->
+                     <div class="market-card">
+                        <div class="market-img-box"><img src="Blue-Eyes White Dragon.jpg" alt="Blue Eyes" onerror="this.src='charizard.png'"></div>
+                        <div class="market-info"><span class="card-game-badge">Yu-Gi-Oh!</span><h4 class="market-title">Blue-Eyes White Dragon</h4><div class="market-meta"><span class="condition-badge">Mint</span><span class="market-price">$85.000</span></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA DASHBOARD (Restaurada y Conectada a Datos Reales) -->
+            <div id="view-dashboard" class="view-section hidden">
+                <div class="grid-layout">
+                    <div class="col-left">
+                        <div class="card profile-card">
+                            <div class="card-header"><h3>Información de Perfil</h3></div>
+                            <div class="card-body">
+                                <!-- Aquí inyectamos los datos reales del JS -->
+                                <div class="profile-detail"><label>Nombre</label><p id="profile-name">Cargando...</p></div>
+                                <div class="profile-detail"><label>Correo</label><p id="profile-email">Cargando...</p></div>
+                                <div class="profile-detail"><label>Membresía</label><span class="badge badge-success" id="profile-role">Vendedor</span></div>
+                                <div class="profile-detail">
+                                    <label>Reputación</label>
+                                    <div class="stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star-half-stroke"></i></div>
+                                </div>
+                                <button class="btn-block">Editar Cliente</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Columna derecha del dashboard (Inventario) -->
+                    <div class="col-right">
+                        <div class="card inventory-section">
+                            <div class="card-header"><h3>Inventario Destacado</h3></div>
+                            <div class="card-body flex-row">
+                                <div class="card-image-container"><img src="charizard.png" alt="Carta"></div>
+                                <div class="card-info">
+                                    <h4>Charizard Holográfico</h4>
+                                    <p class="subtext">Edición Base Set 1st Edition</p>
+                                    <div class="tags"><span class="tag verification">Validado Nivel 3</span></div>
+                                    <div class="price-box"><span class="currency">$150.000 CLP</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card publications-list">
+                            <div class="card-header"><h3>Publicaciones Activas</h3></div>
+                            <div class="list-item">
+                                <div class="item-info"><strong>1. Pikachu Illustrator</strong><span>Estado: Near Mint</span></div>
+                                <span class="status-pill delivered">Entregado</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+<!-- VISTA DE DETALLE DE CARTA -->
+<div id="view-card-detail" class="view-section hidden">
+
+    <button class="btn-secondary" onclick="goBackToCatalog()">
+        ← Volver al Catálogo
+    </button>
+
+    <div id="cardDetailContent">
+        <!-- Aquí se cargará el detalle dinámicamente -->
+    </div>
+
+</div>
+
+            <!-- VISTA CATALOGO (Restaurada con Filtros) -->
+<div id="view-catalog" class="view-section hidden">
+
+    <h2>Buscar Cartas Pokémon</h2>
+
+    <!-- BUSCADOR -->
+    <div class="search-bar-container">
+        <input 
+            type="text"
+            id="searchInput"
+            class="search-input"
+            placeholder="Buscar cartas (ej: charizard, pikachu, squirtle)...">
+        <button class="btn-primary" onclick="searchCards()">Buscar</button>
+    </div>
+
+    <!-- RESULTADOS -->
+    <div id="resultsContainer" class="cards-grid">
+        <!-- Aquí se insertan las cartas -->
+    </div>
+
+</div>
+    <!-- MODAL DE PUBLICACIÓN (Restaurado el bonito) -->
+    <div class="modal-overlay" id="modalPublish">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>Nueva Publicación</h2>
+                <button class="btn-close" onclick="toggleModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="upload-area">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <p>Arrastra la foto de tu carta aquí</p>
+                        <span class="upload-note">JPG, PNG (Máx 5MB)</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Nombre de la Carta</label>
+                        <input type="text" class="form-input" placeholder="Ej: Charizard Base Set">
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label>Juego</label>
+                            <select class="form-input">
+                                <option>Pokémon TCG</option>
+                                <option>Yu-Gi-Oh!</option>
+                                <option>Mitos y Leyendas</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Precio (CLP)</label>
+                            <input type="number" class="form-input" placeholder="150000">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="toggleModal()">Cancelar</button>
+                <button class="btn-primary">Enviar a Revisión</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LÓGICA JAVASCRIPT (La nueva, conectada a MongoDB) -->
+    <script>
+        // 1. CONTROL DE PANTALLAS
+        function toggleAuth(view) {
+            document.getElementById('form-login').classList.toggle('hidden');
+            document.getElementById('form-register').classList.toggle('hidden');
+        }
+
+        function toggleModal() {
+            document.getElementById('modalPublish').classList.toggle('active');
+        }
+
+        function showView(viewName, element) {
+            ['view-home', 'view-dashboard', 'view-catalog'].forEach(id => 
+                document.getElementById(id).classList.add('hidden'));
+            document.getElementById('view-' + viewName).classList.remove('hidden');
+            
+            // Actualizar Título
+            const titles = { 'home': 'Bienvenido', 'dashboard': 'Panel de Control', 'catalog': 'Buscar Cartas' };
+            document.getElementById('page-title').innerText = titles[viewName] || 'Card Trader';
+
+            if(element) {
+                document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+                element.classList.add('active');
+            }
+        }
+
+        function enterApp(user) {
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('main-app').classList.remove('hidden');
+            
+            // Inyectar datos reales en el dashboard visual
+            document.getElementById('user-display-name').innerText = user.name;
+            document.getElementById('profile-name').innerText = user.name;
+            document.getElementById('profile-role').innerText = user.role.toUpperCase();
+            document.getElementById('profile-email').innerText = user.email;
+        }
+
+        function logout() {
+            location.reload(); 
+        }
+
+        // 2. CONEXIÓN CON BASE DE DATOS (FETCH)
+
+        // REGISTRO
+        async function handleRegister(e) {
+            e.preventDefault();
+            console.log("Iniciando registro...");
+
+            const name = document.getElementById('reg-name').value;
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-pass').value;
+            const roleElement = document.querySelector('input[name="role"]:checked');
+            const role = roleElement ? roleElement.value : 'cliente';
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password, role })
+                });
+                
+                const data = await res.json();
+                
+                if(res.ok) {
+                    alert('✅ Registro exitoso. Ahora inicia sesión.');
+                    toggleAuth('login');
+                } else {
+                    alert('❌ Error: ' + data.message);
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error de conexión con el servidor.');
+            }
+        }
+
+        // LOGIN
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-pass').value;
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await res.json();
+
+                if(res.ok) {
+                    enterApp(data.user);
+                } else {
+                    alert('❌ Error: ' + data.message);
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error de conexión con el servidor.');
+            }
+        }
+
+async function searchCards() {
+    const query = document.getElementById("searchInput").value.trim();
+    const container = document.getElementById("resultsContainer");
+
+    if (!query) {
+        container.innerHTML = "<p>Ingresa un nombre para buscar.</p>";
+        return;
+    }
+
+    container.innerHTML = "<p>Buscando...</p>";
+
+    try {
+        const res = await fetch(`/api/cards/search?q=${query}`);
+        const data = await res.json();
+
+        if (!data.results || data.results.length === 0) {
+            container.innerHTML = "<p>No se encontraron cartas.</p>";
+            return;
+        }
+
+        // Mostrar cartas en galería
+        container.innerHTML = "";
+        data.results.forEach(item => {
+            const card = item.card;
+            const listing = item.listings[0] || null;
+
+            container.innerHTML += `
+                <div class="market-card" onclick="showCardDetail('${card.id}')">
+                    <div class="market-img-box">
+                        <img src="${card.images.large}" alt="${card.name}">
+                    </div>
+                    <div class="market-info">
+                        <h4>${card.name}</h4>
+                        <span class="market-price">
+                            ${listing ? "$" + listing.price : "Sin vendedores"}
+                        </span>
+                    </div>
+                </div>
+            `;
+        });
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = "<p>Error buscando cartas.</p>";
+    }
+}
+async function showCardDetail(cardId) {
+    // Cambiar a la vista del detalle
+    showSection('view-card-detail');
+
+    const container = document.getElementById("cardDetailContent");
+    container.innerHTML = "<p>Cargando carta...</p>";
+
+    try {
+        const res = await fetch(`/api/cards/${cardId}`);
+        const data = await res.json();
+
+        const card = data.card;
+        const listings = data.listings;
+
+        container.innerHTML = `
+            <div class="detail-card">
+
+                <div class="detail-left">
+                    <img src="${card.images.large}" alt="${card.name}" class="detail-img">
+                </div>
+
+                <div class="detail-right">
+                    <h2>${card.name}</h2>
+                    <p><strong>Tipo:</strong> ${card.types?.join(", ") || "Desconocido"}</p>
+                    <p><strong>Rareza:</strong> ${card.rarity || "Desconocida"}</p>
+                    <p><strong>Set:</strong> ${card.set.name}</p>
+                    <p><strong>HP:</strong> ${card.hp || "?"}</p>
+
+                    <h3>Vendedores Disponibles</h3>
+                    <div class="seller-list">
+                        ${listings.map(listing => `
+                            <div class="seller-card">
+                                <img src="${listing.seller.avatar}" class="seller-avatar">
+                                <div>
+                                    <p class="seller-name">${listing.seller.name}</p>
+                                    <p class="seller-rating">⭐ ${listing.seller.rating}</p>
+                                </div>
+
+                                <div class="seller-price">
+                                    $${listing.price}
+                                    <span class="seller-condition">(${listing.condition})</span>
+                                </div>
+
+                                <button class="btn-primary">Contactar</button>
+                            </div>
+                        `).join("") || "<p>No hay vendedores aún.</p>" }
+                    </div>
+                </div>
+
+            </div>
+        `;
+    } catch (error) {
+        console.error(error);
+        container.innerHTML = "<p>Error cargando la carta.</p>";
+    }
+}
+function goBackToCatalog() {
+    showSection('view-catalog');
+}
+
+
+    </script>
+</body>
+</html> 
