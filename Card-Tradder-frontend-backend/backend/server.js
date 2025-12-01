@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
+const adminRoutes = require('./routes/admin.routes');
 
 const { authRequired, requireRole } = require('./middlewares/auth');
 const { client: redisClient, connectRedis } = require('./redisClient');
@@ -82,6 +83,7 @@ app.post('/api/register', async (req, res) => {
       user: {
         id: newUser._id,
         email: newUser.email,
+        name: newUser.name,
         role: newUser.role,
       },
     });
@@ -398,7 +400,7 @@ app.get('/api/cards/:id', async (req, res) => {
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
-
+app.use('/api/admin', adminRoutes);
 // --- 9. RUTA FALLBACK (para que cualquier ruta del frontend cargue index.html) ---
 app.get(/(.*)/, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'public', 'index.html'));
