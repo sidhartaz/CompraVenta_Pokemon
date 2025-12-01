@@ -1,15 +1,24 @@
-// models/Listing.js
 const mongoose = require('mongoose');
 
 const listingSchema = new mongoose.Schema({
-    cardId: { type: String, required: true },
-    sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Seller' },
-    price: Number,
-    condition: String,
-    images: [String],
-    createdAt: { type: Date, default: Date.now }
-});
+  title: { type: String, required: true },
+  description: String,
+  price: { type: Number, required: true },
+  // carta asociada, si usas un modelo Card:
+  card: { type: mongoose.Schema.Types.ObjectId, ref: 'Card' },
 
-// Importante: aquí NO se genera faker, NO se ejecutan funciones, SÓLO se declara el modelo.
+  // dueño de la publicación
+  owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+
+  // estado de validación
+  status: {
+    type: String,
+    enum: ['pendiente', 'aprobada', 'rechazada'],
+    default: 'pendiente'
+  },
+
+  isActive: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now }
+});
 
 module.exports = mongoose.model('Listing', listingSchema);

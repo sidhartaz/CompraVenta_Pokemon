@@ -13,7 +13,7 @@
 <body>
 
     <!-- ======================================================= -->
-    <!-- 1. SECCIÓN DE LOGIN / REGISTRO (LOGICA NUEVA)           -->
+    <!-- 1. SECCIÓN DE LOGIN / REGISTRO                         -->
     <!-- ======================================================= -->
     <div class="auth-container" id="auth-section">
         <div class="auth-background">
@@ -107,11 +107,11 @@
     </div>
 
     <!-- ======================================================= -->
-    <!-- 2. APP PRINCIPAL (ESTÉTICA ANTIGUA RESTAURADA)          -->
+    <!-- 2. APP PRINCIPAL                                        -->
     <!-- ======================================================= -->
     <div class="dashboard-container hidden" id="main-app">
         
-        <!-- SIDEBAR (Con lógica de logout agregada) -->
+        <!-- SIDEBAR -->
         <aside class="sidebar">
             <div class="logo-container">
                 <div class="logo-placeholder"><i class="fa-solid fa-layer-group"></i> Card Trader</div>
@@ -137,12 +137,18 @@
                 <a href="#" class="menu-item"><i class="fa-solid fa-clock-rotate-left"></i> Historial</a>
                 
                 <div class="menu-separator">CUENTA</div>
-                
+
+                <div class="menu-separator admin-only">ADMINISTRACIÓN</div>
+                <a href="#" class="menu-item admin-only" onclick="showView('admin', this)">
+                    <i class="fa-solid fa-shield-halved"></i> Panel Admin
+                </a>
+
                 <a href="#" class="menu-item" onclick="showView('dashboard', this)">
                     <i class="fa-solid fa-user"></i> Mi Perfil
                 </a>
-                <!-- Agregado Logout -->
-                <a href="#" class="menu-item" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión</a>
+                <a href="#" class="menu-item" onclick="logout()">
+                    <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
+                </a>
             </nav>
 
             <div class="user-footer">
@@ -167,7 +173,7 @@
                 </div>
             </header>
 
-            <!-- VISTA HOME (Restaurada) -->
+            <!-- VISTA HOME -->
             <div id="view-home" class="view-section">
                 <div class="hero-banner">
                     <div class="hero-content">
@@ -201,100 +207,180 @@
                         <div class="market-info">
                             <span class="card-game-badge">Pokémon TCG</span>
                             <h4 class="market-title">Charizard Base Set 1st Ed.</h4>
-                            <div class="market-meta"><span class="condition-badge">NM</span><span class="market-price">$150.000</span></div>
+                            <div class="market-meta">
+                                <span class="condition-badge">NM</span>
+                                <span class="market-price">$150.000</span>
+                            </div>
                         </div>
                     </div>
-                    <!-- Más cartas de ejemplo estéticas -->
-                     <div class="market-card">
-                        <div class="market-img-box"><img src="Blue-Eyes White Dragon.jpg" alt="Blue Eyes" onerror="this.src='charizard.png'"></div>
-                        <div class="market-info"><span class="card-game-badge">Yu-Gi-Oh!</span><h4 class="market-title">Blue-Eyes White Dragon</h4><div class="market-meta"><span class="condition-badge">Mint</span><span class="market-price">$85.000</span></div></div>
+
+                    <div class="market-card">
+                        <div class="market-img-box">
+                            <img src="Blue-Eyes White Dragon.jpg" alt="Blue Eyes" onerror="this.src='charizard.png'">
+                        </div>
+                        <div class="market-info">
+                            <span class="card-game-badge">Yu-Gi-Oh!</span>
+                            <h4 class="market-title">Blue-Eyes White Dragon</h4>
+                            <div class="market-meta">
+                                <span class="condition-badge">Mint</span>
+                                <span class="market-price">$85.000</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- VISTA DASHBOARD (Restaurada y Conectada a Datos Reales) -->
+            <!-- VISTA DASHBOARD -->
             <div id="view-dashboard" class="view-section hidden">
                 <div class="grid-layout">
                     <div class="col-left">
                         <div class="card profile-card">
                             <div class="card-header"><h3>Información de Perfil</h3></div>
                             <div class="card-body">
-                                <!-- Aquí inyectamos los datos reales del JS -->
-                                <div class="profile-detail"><label>Nombre</label><p id="profile-name">Cargando...</p></div>
-                                <div class="profile-detail"><label>Correo</label><p id="profile-email">Cargando...</p></div>
-                                <div class="profile-detail"><label>Membresía</label><span class="badge badge-success" id="profile-role">Vendedor</span></div>
+                                <div class="profile-detail">
+                                    <label>Nombre</label><p id="profile-name">Cargando...</p>
+                                </div>
+                                <div class="profile-detail">
+                                    <label>Correo</label><p id="profile-email">Cargando...</p>
+                                </div>
+                                <div class="profile-detail">
+                                    <label>Membresía</label>
+                                    <span class="badge badge-success" id="profile-role">Vendedor</span>
+                                </div>
                                 <div class="profile-detail">
                                     <label>Reputación</label>
-                                    <div class="stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star-half-stroke"></i></div>
+                                    <div class="stars">
+                                        <i class="fa-solid fa-star"></i>
+                                        <i class="fa-solid fa-star"></i>
+                                        <i class="fa-solid fa-star"></i>
+                                        <i class="fa-solid fa-star"></i>
+                                        <i class="fa-solid fa-star-half-stroke"></i>
+                                    </div>
                                 </div>
                                 <button class="btn-block">Editar Cliente</button>
                             </div>
                         </div>
                     </div>
-                    <!-- Columna derecha del dashboard (Inventario) -->
+
                     <div class="col-right">
                         <div class="card inventory-section">
                             <div class="card-header"><h3>Inventario Destacado</h3></div>
                             <div class="card-body flex-row">
-                                <div class="card-image-container"><img src="charizard.png" alt="Carta"></div>
+                                <div class="card-image-container">
+                                    <img src="charizard.png" alt="Carta">
+                                </div>
                                 <div class="card-info">
                                     <h4>Charizard Holográfico</h4>
                                     <p class="subtext">Edición Base Set 1st Edition</p>
-                                    <div class="tags"><span class="tag verification">Validado Nivel 3</span></div>
-                                    <div class="price-box"><span class="currency">$150.000 CLP</span></div>
+                                    <div class="tags">
+                                        <span class="tag verification">Validado Nivel 3</span>
+                                    </div>
+                                    <div class="price-box">
+                                        <span class="currency">$150.000 CLP</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
                         <div class="card publications-list">
                             <div class="card-header"><h3>Publicaciones Activas</h3></div>
                             <div class="list-item">
-                                <div class="item-info"><strong>1. Pikachu Illustrator</strong><span>Estado: Near Mint</span></div>
+                                <div class="item-info">
+                                    <strong>1. Pikachu Illustrator</strong>
+                                    <span>Estado: Near Mint</span>
+                                </div>
                                 <span class="status-pill delivered">Entregado</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-<!-- VISTA DE DETALLE DE CARTA -->
-<div id="view-card-detail" class="view-section hidden">
 
-    <button class="btn-secondary" onclick="goBackToCatalog()">
-        ← Volver al Catálogo
-    </button>
+            <!-- VISTA PANEL ADMIN -->
+            <div id="view-admin" class="view-section hidden">
+                <div class="grid-layout">
+                    <div class="col-left">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Gestión de Usuarios</h3>
+                                <button class="btn-secondary" onclick="loadAdminUsers()">Recargar usuarios</button>
+                            </div>
+                            <div class="card-body">
+                                <table class="table" id="admin-users-table">
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Email</th>
+                                        <th>Rol</th>
+                                        <th>Activo</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                    <!-- Filas cargadas por JS -->
+                                </table>
+                            </div>
+                        </div>
+                    </div>
 
-    <div id="cardDetailContent">
-        <!-- Aquí se cargará el detalle dinámicamente -->
+                    <div class="col-right">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Publicaciones Pendientes</h3>
+                                <button class="btn-secondary" onclick="loadPendingPublications()">Recargar publicaciones</button>
+                            </div>
+                            <div class="card-body">
+                                <table class="table" id="admin-publications-table">
+                                    <tr>
+                                        <th>Título</th>
+                                        <th>Vendedor</th>
+                                        <th>Precio</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                    <!-- Filas cargadas por JS -->
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA DETALLE CARTA -->
+            <div id="view-card-detail" class="view-section hidden">
+                <button class="btn-secondary" onclick="goBackToCatalog()">
+                    ← Volver al Catálogo
+                </button>
+                <div id="cardDetailContent">
+                    <!-- Contenido dinámico -->
+                </div>
+            </div>
+
+            <!-- VISTA CATALOGO -->
+            <div id="view-catalog" class="view-section hidden">
+                <h2>Buscar Cartas Pokémon</h2>
+
+                <div class="search-bar-container">
+                    <input 
+                        type="text"
+                        id="searchInput"
+                        class="search-input"
+                        placeholder="Buscar cartas (ej: charizard, pikachu, squirtle)...">
+                    <button class="btn-primary" onclick="searchCards()">Buscar</button>
+                </div>
+
+                <div id="resultsContainer" class="cards-grid">
+                    <!-- Cartas buscadas -->
+                </div>
+            </div>
+
+        </main>
     </div>
 
-</div>
-
-            <!-- VISTA CATALOGO (Restaurada con Filtros) -->
-<div id="view-catalog" class="view-section hidden">
-
-    <h2>Buscar Cartas Pokémon</h2>
-
-    <!-- BUSCADOR -->
-    <div class="search-bar-container">
-        <input 
-            type="text"
-            id="searchInput"
-            class="search-input"
-            placeholder="Buscar cartas (ej: charizard, pikachu, squirtle)...">
-        <button class="btn-primary" onclick="searchCards()">Buscar</button>
-    </div>
-
-    <!-- RESULTADOS -->
-    <div id="resultsContainer" class="cards-grid">
-        <!-- Aquí se insertan las cartas -->
-    </div>
-
-</div>
-    <!-- MODAL DE PUBLICACIÓN (Restaurado el bonito) -->
+    <!-- MODAL DE PUBLICACIÓN -->
     <div class="modal-overlay" id="modalPublish">
         <div class="modal-container">
             <div class="modal-header">
                 <h2>Nueva Publicación</h2>
-                <button class="btn-close" onclick="toggleModal()"><i class="fa-solid fa-xmark"></i></button>
+                <button class="btn-close" onclick="toggleModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
             <div class="modal-body">
                 <form>
@@ -330,9 +416,14 @@
         </div>
     </div>
 
-    <!-- LÓGICA JAVASCRIPT (La nueva, conectada a MongoDB) -->
+    <!-- ======================================================= -->
+    <!-- LÓGICA JAVASCRIPT                                       -->
+    <!-- ======================================================= -->
     <script>
-        // 1. CONTROL DE PANTALLAS
+        let authToken = null;
+        let currentUser = null;
+
+        // Cambiar entre login / registro
         function toggleAuth(view) {
             document.getElementById('form-login').classList.toggle('hidden');
             document.getElementById('form-register').classList.toggle('hidden');
@@ -342,39 +433,207 @@
             document.getElementById('modalPublish').classList.toggle('active');
         }
 
+        // Mostrar vista principal (usada por el menú)
         function showView(viewName, element) {
-            ['view-home', 'view-dashboard', 'view-catalog'].forEach(id => 
-                document.getElementById(id).classList.add('hidden'));
-            document.getElementById('view-' + viewName).classList.remove('hidden');
-            
-            // Actualizar Título
-            const titles = { 'home': 'Bienvenido', 'dashboard': 'Panel de Control', 'catalog': 'Buscar Cartas' };
-            document.getElementById('page-title').innerText = titles[viewName] || 'Card Trader';
+            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-admin', 'view-card-detail'];
+            sections.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
 
-            if(element) {
-                document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
-                element.classList.add('active');
+            const target = document.getElementById('view-' + viewName);
+            if (target) {
+                target.classList.remove('hidden');
+            } else {
+                console.warn('Vista no encontrada:', 'view-' + viewName);
             }
+
+            document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
+            if (element) element.classList.add('active');
+
+            const titles = { 
+                home: 'Bienvenido', 
+                dashboard: 'Mi Panel', 
+                catalog: 'Buscar Cartas',
+                admin: 'Panel de Administración',
+                'card-detail': 'Detalle de Carta'
+            };
+            document.getElementById('page-title').textContent = titles[viewName] || 'Card Trader';
         }
 
+        // Helper para cambiar de vista desde otras funciones (detalle de carta)
+        function showSection(sectionId) {
+            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-admin', 'view-card-detail'];
+            sections.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+            const target = document.getElementById(sectionId);
+            if (target) target.classList.remove('hidden');
+        }
+
+        // Al entrar después de login
         function enterApp(user) {
+            currentUser = user;
+            
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('main-app').classList.remove('hidden');
             
-            // Inyectar datos reales en el dashboard visual
             document.getElementById('user-display-name').innerText = user.name;
             document.getElementById('profile-name').innerText = user.name;
             document.getElementById('profile-role').innerText = user.role.toUpperCase();
             document.getElementById('profile-email').innerText = user.email;
+
+            // Mostrar/ocultar cosas solo admin
+            const adminItems = document.querySelectorAll('.admin-only');
+            adminItems.forEach(el => {
+                el.style.display = (user.role === 'admin') ? 'block' : 'none';
+            });
         }
 
         function logout() {
             location.reload(); 
         }
 
-        // 2. CONEXIÓN CON BASE DE DATOS (FETCH)
+        // =============== ADMIN: USUARIOS ==================
+        async function loadAdminUsers() {
+            if (!authToken) return alert('No autenticado');
 
-        // REGISTRO
+            const res = await fetch('/api/admin/users', {
+                headers: { 'Authorization': 'Bearer ' + authToken }
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                return alert('Error: ' + data.message);
+            }
+
+            const table = document.getElementById('admin-users-table');
+            table.innerHTML = `
+                <tr>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Rol</th>
+                    <th>Activo</th>
+                    <th>Acciones</th>
+                </tr>
+                ${data.users.map(u => `
+                    <tr>
+                        <td>${u.name}</td>
+                        <td>${u.email}</td>
+                        <td>${u.role}</td>
+                        <td>${u.isActive ? 'Sí' : 'No'}</td>
+                        <td>
+                            <button onclick="promoteToSeller('${u._id}')">Hacer vendedor</button>
+                            <button onclick="deleteUser('${u._id}')">Eliminar</button>
+                        </td>
+                    </tr>
+                `).join('')}
+            `;
+        }
+
+        async function promoteToSeller(userId) {
+            if (!confirm('¿Convertir a vendedor?')) return;
+            const res = await fetch('/api/admin/users/' + userId, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify({ role: 'vendedor' })
+            });
+            const data = await res.json();
+            if (!res.ok) return alert('Error: ' + data.message);
+            loadAdminUsers();
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm('¿Eliminar usuario?')) return;
+            const res = await fetch('/api/admin/users/' + userId, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + authToken }
+            });
+            const data = await res.json();
+            if (!res.ok) return alert('Error: ' + data.message);
+            loadAdminUsers();
+        }
+
+        // =============== ADMIN: PUBLICACIONES =============
+        async function loadPendingPublications() {
+            if (!authToken) return alert('No autenticado');
+
+            const res = await fetch('/api/admin/publications?status=pendiente', {
+                headers: { 'Authorization': 'Bearer ' + authToken }
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                return alert('Error: ' + data.message);
+            }
+
+            const table = document.getElementById('admin-publications-table');
+            table.innerHTML = `
+                <tr>
+                    <th>Título</th>
+                    <th>Vendedor</th>
+                    <th>Precio</th>
+                    <th>Acciones</th>
+                </tr>
+                ${data.listings.map(p => `
+                    <tr>
+                        <td>${p.title}</td>
+                        <td>${p.owner?.name || 'N/A'} (${p.owner?.email || ''})</td>
+                        <td>${p.price}</td>
+                        <td>
+                            <button onclick="approvePublication('${p._id}')">Aprobar</button>
+                            <button onclick="rejectPublication('${p._id}')">Rechazar</button>
+                            <button onclick="deletePublication('${p._id}')">Eliminar</button>
+                        </td>
+                    </tr>
+                `).join('')}
+            `;
+        }
+
+        async function approvePublication(id) {
+            const res = await fetch('/api/admin/publications/' + id + '/status', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify({ status: 'aprobada' })
+            });
+            const data = await res.json();
+            if (!res.ok) return alert('Error: ' + data.message);
+            loadPendingPublications();
+        }
+
+        async function rejectPublication(id) {
+            const res = await fetch('/api/admin/publications/' + id + '/status', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify({ status: 'rechazada' })
+            });
+            const data = await res.json();
+            if (!res.ok) return alert('Error: ' + data.message);
+            loadPendingPublications();
+        }
+
+        async function deletePublication(id) {
+            if (!confirm('¿Eliminar publicación?')) return;
+            const res = await fetch('/api/admin/publications/' + id, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + authToken }
+            });
+            const data = await res.json();
+            if (!res.ok) return alert('Error: ' + data.message);
+            loadPendingPublications();
+        }
+
+        // =============== REGISTRO =========================
         async function handleRegister(e) {
             e.preventDefault();
             console.log("Iniciando registro...");
@@ -406,7 +665,7 @@
             }
         }
 
-        // LOGIN
+        // =============== LOGIN ============================
         async function handleLogin(e) {
             e.preventDefault();
             const email = document.getElementById('login-email').value;
@@ -422,6 +681,8 @@
                 const data = await res.json();
 
                 if(res.ok) {
+                    authToken = data.token;
+                    currentUser = data.user;
                     enterApp(data.user);
                 } else {
                     alert('❌ Error: ' + data.message);
@@ -432,112 +693,117 @@
             }
         }
 
-async function searchCards() {
-    const query = document.getElementById("searchInput").value.trim();
-    const container = document.getElementById("resultsContainer");
+        // =============== BUSCAR CARTAS ====================
+        async function searchCards() {
+            const query = document.getElementById("searchInput").value.trim();
+            const container = document.getElementById("resultsContainer");
 
-    if (!query) {
-        container.innerHTML = "<p>Ingresa un nombre para buscar.</p>";
-        return;
-    }
+            if (!query) {
+                container.innerHTML = "<p>Ingresa un nombre para buscar.</p>";
+                return;
+            }
 
-    container.innerHTML = "<p>Buscando...</p>";
+            container.innerHTML = "<p>Buscando...</p>";
 
-    try {
-        const res = await fetch(`/api/cards/search?q=${query}`);
-        const data = await res.json();
+            try {
+                const res = await fetch(`/api/cards/search?q=${query}`);
+                const data = await res.json();
 
-        if (!data.results || data.results.length === 0) {
-            container.innerHTML = "<p>No se encontraron cartas.</p>";
-            return;
+                if (!data.results || data.results.length === 0) {
+                    container.innerHTML = "<p>No se encontraron cartas.</p>";
+                    return;
+                }
+
+                container.innerHTML = "";
+                data.results.forEach(item => {
+                    const card = item.card;
+                    const listing = item.listings[0] || null;
+
+                    container.innerHTML += `
+                        <div class="market-card" onclick="showCardDetail('${card.id}')">
+                            <div class="market-img-box">
+                                <img src="${card.images.large}" alt="${card.name}">
+                            </div>
+                            <div class="market-info">
+                                <h4>${card.name}</h4>
+                                <span class="market-price">
+                                    ${listing ? "$" + listing.price : "Sin vendedores"}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = "<p>Error buscando cartas.</p>";
+            }
         }
 
-        // Mostrar cartas en galería
-        container.innerHTML = "";
-        data.results.forEach(item => {
-            const card = item.card;
-            const listing = item.listings[0] || null;
+        // =============== DETALLE DE CARTA =================
+        async function showCardDetail(cardId) {
+            showSection('view-card-detail');
 
-            container.innerHTML += `
-                <div class="market-card" onclick="showCardDetail('${card.id}')">
-                    <div class="market-img-box">
-                        <img src="${card.images.large}" alt="${card.name}">
-                    </div>
-                    <div class="market-info">
-                        <h4>${card.name}</h4>
-                        <span class="market-price">
-                            ${listing ? "$" + listing.price : "Sin vendedores"}
-                        </span>
-                    </div>
-                </div>
-            `;
-        });
-    } catch (err) {
-        console.error(err);
-        container.innerHTML = "<p>Error buscando cartas.</p>";
-    }
-}
-async function showCardDetail(cardId) {
-    // Cambiar a la vista del detalle
-    showSection('view-card-detail');
+            const container = document.getElementById("cardDetailContent");
+            container.innerHTML = "<p>Cargando carta...</p>";
 
-    const container = document.getElementById("cardDetailContent");
-    container.innerHTML = "<p>Cargando carta...</p>";
+            try {
+                const res = await fetch(`/api/cards/${cardId}`);
+                const data = await res.json();
 
-    try {
-        const res = await fetch(`/api/cards/${cardId}`);
-        const data = await res.json();
+                const card = data.card;
+                const listings = data.listings;
 
-        const card = data.card;
-        const listings = data.listings;
+                container.innerHTML = `
+                    <div class="detail-card">
 
-        container.innerHTML = `
-            <div class="detail-card">
+                        <div class="detail-left">
+                            <img src="${card.images.large}" alt="${card.name}" class="detail-img">
+                        </div>
 
-                <div class="detail-left">
-                    <img src="${card.images.large}" alt="${card.name}" class="detail-img">
-                </div>
+                        <div class="detail-right">
+                            <h2>${card.name}</h2>
+                            <p><strong>Tipo:</strong> ${card.types?.join(", ") || "Desconocido"}</p>
+                            <p><strong>Rareza:</strong> ${card.rarity || "Desconocida"}</p>
+                            <p><strong>Set:</strong> ${card.set.name}</p>
+                            <p><strong>HP:</strong> ${card.hp || "?"}</p>
 
-                <div class="detail-right">
-                    <h2>${card.name}</h2>
-                    <p><strong>Tipo:</strong> ${card.types?.join(", ") || "Desconocido"}</p>
-                    <p><strong>Rareza:</strong> ${card.rarity || "Desconocida"}</p>
-                    <p><strong>Set:</strong> ${card.set.name}</p>
-                    <p><strong>HP:</strong> ${card.hp || "?"}</p>
+                            <h3>Vendedores Disponibles</h3>
+                            <div class="seller-list">
+                                ${
+                                    listings.length
+                                    ? listings.map(listing => `
+                                        <div class="seller-card">
+                                            <img src="${listing.seller.avatar}" class="seller-avatar">
+                                            <div>
+                                                <p class="seller-name">${listing.seller.name}</p>
+                                                <p class="seller-rating">⭐ ${listing.seller.rating}</p>
+                                            </div>
 
-                    <h3>Vendedores Disponibles</h3>
-                    <div class="seller-list">
-                        ${listings.map(listing => `
-                            <div class="seller-card">
-                                <img src="${listing.seller.avatar}" class="seller-avatar">
-                                <div>
-                                    <p class="seller-name">${listing.seller.name}</p>
-                                    <p class="seller-rating">⭐ ${listing.seller.rating}</p>
-                                </div>
+                                            <div class="seller-price">
+                                                $${listing.price}
+                                                <span class="seller-condition">(${listing.condition})</span>
+                                            </div>
 
-                                <div class="seller-price">
-                                    $${listing.price}
-                                    <span class="seller-condition">(${listing.condition})</span>
-                                </div>
-
-                                <button class="btn-primary">Contactar</button>
+                                            <button class="btn-primary">Contactar</button>
+                                        </div>
+                                      `).join("")
+                                    : "<p>No hay vendedores aún.</p>"
+                                }
                             </div>
-                        `).join("") || "<p>No hay vendedores aún.</p>" }
+                        </div>
+
                     </div>
-                </div>
+                `;
+            } catch (error) {
+                console.error(error);
+                container.innerHTML = "<p>Error cargando la carta.</p>";
+            }
+        }
 
-            </div>
-        `;
-    } catch (error) {
-        console.error(error);
-        container.innerHTML = "<p>Error cargando la carta.</p>";
-    }
-}
-function goBackToCatalog() {
-    showSection('view-catalog');
-}
-
+        function goBackToCatalog() {
+            showSection('view-catalog');
+        }
 
     </script>
 </body>
-</html> 
+</html>
