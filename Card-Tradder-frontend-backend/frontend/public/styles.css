@@ -275,6 +275,15 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
 /* --- HISTORIAL --- */
 .history-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
 .history-filters { min-width: 220px; }
+.history-tabs { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.history-tab { border: 1px solid #e5e7eb; background: #fff; padding: 8px 14px; border-radius: 999px; cursor: pointer; color: var(--text-gray); transition: all 0.2s; }
+.history-tab:hover { border-color: var(--primary-color); color: var(--primary-color); }
+.history-tab.active { background: var(--primary-color); color: #fff; border-color: var(--primary-color); box-shadow: 0 5px 15px -5px rgba(59,130,246,0.3); }
+.history-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.history-summary-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px; }
+.summary-label { margin: 0; font-weight: 600; color: var(--text-gray); }
+.summary-value { margin: 4px 0 2px; font-size: 1.4rem; font-weight: 800; color: var(--text-dark); }
+.summary-sub { margin: 0; color: var(--text-gray); font-size: 0.9rem; }
 .history-card { border: 1px solid #e5e7eb; border-radius: var(--border-radius); padding: 16px; margin-bottom: 16px; background: #fff; }
 .history-card-header { display: flex; gap: 16px; align-items: center; }
 .history-image-wrapper { width: 96px; height: 96px; border-radius: 12px; overflow: hidden; background: #f3f4f6; display: flex; align-items: center; justify-content: center; }

@@ -116,8 +116,16 @@ router.get('/', authRequired, async (req, res) => {
     await expireOldReservations();
 
     const filter = {};
-    const { status } = req.query;
+    const { status, type } = req.query;
     if (status) filter.status = status;
+
+    if (type) {
+      const allowedTypes = ['compra', 'reserva'];
+      if (!allowedTypes.includes(type)) {
+        return res.status(400).json({ message: 'Tipo de orden inválido' });
+      }
+      filter.type = type;
+    }
 
     if (req.user.role === 'admin') {
       // Sin filtro adicional

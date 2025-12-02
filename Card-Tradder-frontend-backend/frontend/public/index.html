@@ -325,6 +325,28 @@
                             </select>
                         </div>
                     </div>
+                    <div class="history-tabs">
+                        <button class="history-tab active" data-type="" onclick="setHistoryTypeFilter('')">Todo</button>
+                        <button class="history-tab" data-type="compra" onclick="setHistoryTypeFilter('compra')">Compras</button>
+                        <button class="history-tab" data-type="reserva" onclick="setHistoryTypeFilter('reserva')">Reservas</button>
+                    </div>
+                    <div class="history-summary" id="history-summary">
+                        <div class="history-summary-card">
+                            <p class="summary-label">Compras</p>
+                            <p class="summary-value">0</p>
+                            <p class="summary-sub">Totales</p>
+                        </div>
+                        <div class="history-summary-card">
+                            <p class="summary-label">Reservas</p>
+                            <p class="summary-value">0</p>
+                            <p class="summary-sub">Totales</p>
+                        </div>
+                        <div class="history-summary-card">
+                            <p class="summary-label">Reservas activas</p>
+                            <p class="summary-value">0</p>
+                            <p class="summary-sub">En estado reservada</p>
+                        </div>
+                    </div>
                     <div class="card-body" id="history-list">
                         <p class="subtext">Carga el historial para ver tus movimientos.</p>
                     </div>
@@ -418,6 +440,8 @@
         let authToken = null;
         let currentUser = null;
         let listingImageBase64 = null;
+        let historyOrdersCache = [];
+        let historyTypeFilter = '';
 
         function apiFetch(url, options = {}) {
             const headers = options.headers || {};
@@ -929,6 +953,58 @@
             `;
         }
 
+        function renderHistoryList(orders) {
+            const container = document.getElementById('history-list');
+            if (!container) return;
+
+            if (!orders || orders.length === 0) {
+                container.innerHTML = '<p>No hay órdenes registradas aún.</p>';
+                return;
+            }
+
+            container.innerHTML = orders.map(renderHistoryItem).join('');
+        }
+
+        function updateHistorySummary(orders = []) {
+            const summary = document.getElementById('history-summary');
+            if (!summary) return;
+
+            const totalCompras = orders.filter(o => o.type === 'compra').length;
+            const totalReservas = orders.filter(o => o.type === 'reserva').length;
+            const activeReservas = orders.filter(o => o.type === 'reserva' && o.status === 'reservada').length;
+
+            summary.innerHTML = `
+                <div class="history-summary-card">
+                    <p class="summary-label">Compras</p>
+                    <p class="summary-value">${totalCompras}</p>
+                    <p class="summary-sub">Totales</p>
+                </div>
+                <div class="history-summary-card">
+                    <p class="summary-label">Reservas</p>
+                    <p class="summary-value">${totalReservas}</p>
+                    <p class="summary-sub">Totales</p>
+                </div>
+                <div class="history-summary-card">
+                    <p class="summary-label">Reservas activas</p>
+                    <p class="summary-value">${activeReservas}</p>
+                    <p class="summary-sub">En estado reservada</p>
+                </div>
+            `;
+        }
+
+        function setHistoryTypeFilter(type) {
+            historyTypeFilter = type || '';
+            document.querySelectorAll('.history-tab').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.type === historyTypeFilter);
+            });
+
+            const filtered = historyTypeFilter
+                ? historyOrdersCache.filter(o => o.type === historyTypeFilter)
+                : historyOrdersCache;
+
+            renderHistoryList(filtered);
+        }
+
         async function loadOrderHistory() {
             if (!authToken) return;
             const container = document.getElementById('history-list');
@@ -946,15 +1022,19 @@
                     return;
                 }
 
-                if (!data.orders || data.orders.length === 0) {
-                    container.innerHTML = '<p>No hay órdenes registradas aún.</p>';
-                    return;
-                }
+                historyOrdersCache = data.orders || [];
+                updateHistorySummary(historyOrdersCache);
 
-                container.innerHTML = data.orders.map(renderHistoryItem).join('');
+                const filtered = historyTypeFilter
+                    ? historyOrdersCache.filter(order => order.type === historyTypeFilter)
+                    : historyOrdersCache;
+
+                renderHistoryList(filtered);
             } catch (error) {
                 console.error(error);
                 container.innerHTML = '<p>Error al cargar el historial.</p>';
+                historyOrdersCache = [];
+                updateHistorySummary([]);
             }
         }
 
