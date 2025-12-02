@@ -158,10 +158,10 @@ app.get('/api/admin/ventas', authRequired, requireRole('admin'), (req, res) => {
 
 // --- 6. CRUD LISTINGS (recurso principal) ---
 
-// Obtener todas las publicaciones aprobadas (catálogo)
+// Obtener todas las publicaciones aprobadas y activas (catálogo)
 app.get('/api/listings', async (req, res) => {
   try {
-    const filter = { status: 'aprobada' };
+    const filter = { status: 'aprobada', isActive: true };
     if (req.query.status) {
       filter.status = req.query.status;
     }
@@ -199,6 +199,10 @@ app.get('/api/listings/:id', async (req, res) => {
 
     if (listing.status !== 'aprobada') {
       return res.status(403).json({ message: 'La publicación aún no está aprobada.' });
+    }
+
+    if (!listing.isActive) {
+      return res.status(403).json({ message: 'La publicación no está disponible.' });
     }
 
     return res.json(listing);
@@ -424,7 +428,7 @@ app.get('/api/cards/:id', async (req, res) => {
       return res.json({ card: null, listings: [] });
     }
 
-    const listings = await Listing.find({ cardId, status: 'aprobada' })
+    const listings = await Listing.find({ cardId, status: 'aprobada', isActive: true })
       .populate('sellerId', 'name email role')
       .lean();
 
@@ -434,6 +438,8 @@ app.get('/api/cards/:id', async (req, res) => {
       condition: lst.condition,
       seller: lst.sellerId,
       imageData: lst.imageData,
+      status: lst.status,
+      isActive: lst.isActive,
     }));
 
     return res.json({

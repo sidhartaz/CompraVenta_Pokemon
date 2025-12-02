@@ -1122,7 +1122,10 @@
                             <div class="seller-list">
                                 ${
                                     listings.length
-                                    ? listings.map(listing => `
+                                    ? listings.map(listing => {
+                                        const available = listing.status === 'aprobada' && listing.isActive !== false;
+                                        const availabilityLabel = available ? 'Disponible' : 'No disponible';
+                                        return `
                                         <div class="seller-card">
                                             <div class="seller-avatar">${(listing.seller?.name || 'Vendedor')[0]}</div>
                                             <div>
@@ -1136,14 +1139,20 @@
                                             <div class="seller-price">
                                                 $${listing.price}
                                                 <span class="seller-condition">(${listing.condition})</span>
+                                                <span class="availability-pill ${available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
                                             </div>
-                                            <div class="seller-actions">
-                                                <button class="btn-primary" onclick="createOrder('${listing.id}','compra')">Comprar</button>
-                                                <button class="btn-secondary" onclick="createOrder('${listing.id}','reserva')">Reservar</button>
-                                                <a class="btn-primary" href="mailto:${listing.seller?.email || ''}?subject=Interés%20en%20${encodeURIComponent(card.name)}" target="_blank" rel="noopener noreferrer">Contactar</a>
-                                            </div>
+                                            ${available
+                                                ? `<div class="seller-actions">
+                                                    <button class="btn-primary" onclick="createOrder('${listing.id}','compra')">Comprar</button>
+                                                    <button class="btn-secondary" onclick="createOrder('${listing.id}','reserva')">Reservar</button>
+                                                    <a class="btn-primary" href="mailto:${listing.seller?.email || ''}?subject=Interés%20en%20${encodeURIComponent(card.name)}" target="_blank" rel="noopener noreferrer">Contactar</a>
+                                                </div>`
+                                                : `<div class="seller-actions disabled">
+                                                    <span class="availability-note">No disponible para compra, reserva ni contacto.</span>
+                                                </div>`
+                                            }
                                         </div>
-                                      `).join("")
+                                      `; }).join("")
                                     : "<p>No hay vendedores aún.</p>"
                                 }
                             </div>

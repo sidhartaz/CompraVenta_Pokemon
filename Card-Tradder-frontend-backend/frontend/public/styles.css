@@ -120,6 +120,47 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
     opacity: 0.7;
 }
 
+.seller-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.seller-actions.disabled {
+    opacity: 0.65;
+}
+
+.seller-actions .btn-primary:disabled,
+.seller-actions .btn-secondary:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.availability-pill {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.availability-pill.available {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.availability-pill.unavailable {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.availability-note {
+    color: var(--text-gray);
+    font-weight: 600;
+}
+
 /* Tarjeta de Auth */
 .auth-card {
     background: var(--white);
