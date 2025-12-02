@@ -334,6 +334,7 @@ app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, 
     if (condition !== undefined) listing.condition = condition;
     if (description !== undefined) listing.description = description;
     if (imageData !== undefined) listing.imageData = imageData;
+    if (req.body.cardId !== undefined) listing.cardId = req.body.cardId || undefined;
     if (name !== undefined) {
       listing.name = name;
       listing.slug = await generateUniqueSlug(name, listing._id);
@@ -363,6 +364,7 @@ app.delete('/api/listings/:id', authRequired, requireRole('vendedor'), async (re
       return res.status(403).json({ message: 'No puedes eliminar publicaciones de otros vendedores' });
     }
 
+    await Order.deleteMany({ listingId: listing._id });
     await listing.deleteOne();
 
     return res.json({ message: 'Listing eliminado con éxito' });
