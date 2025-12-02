@@ -124,6 +124,9 @@
                 <a href="#" class="menu-item" onclick="showView('catalog', this)">
                     <i class="fa-solid fa-magnifying-glass"></i> Buscar Cartas
                 </a>
+                <a href="#" class="menu-item" onclick="showView('publications', this)">
+                    <i class="fa-solid fa-list"></i> Publicaciones
+                </a>
                 
                 <div class="menu-separator">GESTIÓN</div>
                 
@@ -353,6 +356,26 @@
                 </div>
             </div>
 
+            <!-- VISTA PUBLICACIONES -->
+            <div id="view-publications" class="view-section hidden">
+                <div class="card">
+                    <div class="card-header publications-header">
+                        <div>
+                            <h3>Publicaciones disponibles</h3>
+                            <p class="subtext">Explora publicaciones aprobadas, revisa su disponibilidad y contacta al vendedor.</p>
+                        </div>
+                        <div class="pill-counter">
+                            <span id="publications-count">0</span> activas
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="publications-list" class="publications-grid">
+                            <p class="subtext">Cargando publicaciones...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- VISTA DETALLE CARTA -->
             <div id="view-card-detail" class="view-section hidden">
                 <button class="btn-secondary" onclick="goBackToCatalog()">
@@ -483,6 +506,55 @@
             `;
         }
 
+        function renderPublicationCard(listing) {
+            const card = listing.card || {};
+            const seller = listing.sellerId || listing.seller || {};
+            const cardName = card.name || listing.cardId;
+            const image = listing.imageData || card.images?.small || 'black.jpg';
+            const available = listing.status === 'aprobada' && listing.isActive !== false;
+            const availabilityLabel = available ? 'Disponible' : 'No disponible';
+            const listingId = listing.id || listing._id;
+
+            return `
+                <div class="publication-card">
+                    <div class="publication-main">
+                        <div class="publication-thumb">
+                            <img src="${image}" alt="${cardName}" onerror="this.src='black.jpg'">
+                        </div>
+                        <div class="publication-info">
+                            <div class="publication-title-row">
+                                <h4 class="publication-title">${cardName}</h4>
+                                <span class="availability-pill ${available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
+                            </div>
+                            <p class="publication-desc">${listing.description || 'Sin descripción'}</p>
+                            <div class="publication-meta">
+                                <span class="seller-chip"><i class="fa-solid fa-user"></i> ${seller.name || 'Vendedor'}</span>
+                                <span class="seller-chip"><i class="fa-solid fa-envelope"></i> ${seller.email || 'Correo no disponible'}</span>
+                                <span class="seller-chip"><i class="fa-solid fa-tag"></i> ${listing.condition}</span>
+                            </div>
+                        </div>
+                        <div class="publication-price">
+                            <span>Precio</span>
+                            <strong>$${listing.price}</strong>
+                            <small>${card.set?.name || 'Set no disponible'}</small>
+                        </div>
+                    </div>
+                    ${available
+                        ? `<div class="publication-actions">
+                            <button class="btn-primary" onclick="createOrder('${listingId}','compra')">Comprar</button>
+                            <button class="btn-secondary" onclick="createOrder('${listingId}','reserva')">Reservar</button>
+                            <a class="btn-link" href="mailto:${seller.email || ''}?subject=Interés%20en%20${encodeURIComponent(cardName)}" target="_blank" rel="noopener noreferrer">Contactar vendedor</a>
+                            <button class="btn-secondary ghost" onclick="showCardDetail('${listing.cardId}')">Ver detalle</button>
+                        </div>`
+                        : `<div class="publication-actions disabled">
+                            <span class="availability-note">No disponible para compra, reserva ni contacto.</span>
+                            <button class="btn-secondary ghost" onclick="showCardDetail('${listing.cardId}')">Ver detalle</button>
+                        </div>`
+                    }
+                </div>
+            `;
+        }
+
         // Cambiar entre login / registro
         function toggleAuth(view) {
             document.getElementById('form-login').classList.toggle('hidden');
@@ -495,7 +567,7 @@
 
         // Mostrar vista principal (usada por el menú)
         function showView(viewName, element) {
-            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-admin', 'view-history', 'view-card-detail'];
+            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-publications', 'view-admin', 'view-history', 'view-card-detail'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -515,6 +587,7 @@
                 home: 'Bienvenido',
                 dashboard: 'Mi Panel',
                 catalog: 'Buscar Cartas',
+                publications: 'Publicaciones',
                 admin: 'Panel de Administración',
                 'card-detail': 'Detalle de Carta',
                 history: 'Historial',
@@ -529,11 +602,15 @@
             if (viewName === 'history') {
                 loadOrderHistory();
             }
+
+            if (viewName === 'publications') {
+                loadPublicationsBoard();
+            }
         }
 
         // Helper para cambiar de vista desde otras funciones (detalle de carta)
         function showSection(sectionId) {
-            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-admin', 'view-history', 'view-card-detail'];
+            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-publications', 'view-admin', 'view-history', 'view-card-detail'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -562,6 +639,7 @@
 
             loadHomeListings();
             loadCatalogListings();
+            loadPublicationsBoard();
             loadSellerListings();
             loadOrderHistory();
         }
@@ -606,6 +684,30 @@
             } catch (err) {
                 console.error(err);
                 container.innerHTML = '<p>Error cargando catálogo.</p>';
+            }
+        }
+
+        async function loadPublicationsBoard() {
+            const container = document.getElementById('publications-list');
+            if (!container) return;
+            container.innerHTML = '<p class="subtext">Cargando publicaciones...</p>';
+
+            try {
+                const res = await fetch('/api/listings');
+                const data = await res.json();
+
+                const counter = document.getElementById('publications-count');
+                if (counter) counter.textContent = Array.isArray(data) ? data.length : 0;
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = '<p>No hay publicaciones activas.</p>';
+                    return;
+                }
+
+                container.innerHTML = data.map(renderPublicationCard).join('');
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<p>Error cargando publicaciones.</p>';
             }
         }
 
@@ -888,6 +990,7 @@
                     loadSellerListings();
                     loadHomeListings();
                     loadCatalogListings();
+                    loadPublicationsBoard();
                 } else {
                     alert('❌ Error: ' + (data.message || 'No se pudo crear la publicación'));
                 }

@@ -295,6 +295,29 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
 .market-price { font-size: 1.1rem; font-weight: 700; color: var(--primary-color); }
 .condition-badge { background: #f3f4f6; font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; color: var(--text-dark); }
 
+/* --- PUBLICACIONES --- */
+.publications-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pill-counter { background: #e0f2fe; color: #075985; padding: 8px 12px; border-radius: 999px; font-weight: 700; border: 1px solid #bae6fd; }
+.publications-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.publication-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 10px -6px rgba(0,0,0,0.1); }
+.publication-main { display: grid; grid-template-columns: 120px 1fr 160px; gap: 14px; align-items: center; }
+.publication-thumb { width: 120px; height: 120px; border-radius: 12px; overflow: hidden; background: #f3f4f6; display: flex; align-items: center; justify-content: center; border: 1px solid #e5e7eb; }
+.publication-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.publication-info { display: flex; flex-direction: column; gap: 6px; }
+.publication-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.publication-title { margin: 0; font-size: 1.05rem; }
+.publication-desc { margin: 0; color: var(--text-gray); font-size: 0.95rem; }
+.publication-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.seller-chip { background: #f3f4f6; padding: 6px 10px; border-radius: 999px; font-size: 0.85rem; color: var(--text-gray); display: inline-flex; gap: 6px; align-items: center; }
+.publication-price { text-align: right; display: flex; flex-direction: column; gap: 4px; justify-content: center; }
+.publication-price strong { font-size: 1.4rem; color: var(--primary-color); }
+.publication-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.publication-actions.disabled { opacity: 0.7; }
+.btn-link { color: var(--primary-color); font-weight: 700; text-decoration: none; }
+.btn-link:hover { text-decoration: underline; }
+.btn-secondary.ghost { background: transparent; color: var(--primary-color); border: 1px solid #bfdbfe; }
+.btn-secondary.ghost:hover { background: #eff6ff; }
+
 /* --- MODAL --- */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
 .modal-overlay.active { display: flex; }
