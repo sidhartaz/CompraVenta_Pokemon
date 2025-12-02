@@ -484,12 +484,13 @@
             const card = listing.card || {};
             const image = listing.imageData || card.images?.large || 'black.jpg';
             const cardName = card.name || listing.cardId;
+            const listingId = listing.id || listing._id || '';
             const badge = listing.status && listing.status !== 'aprobada'
                 ? `<span class="badge-overlay warning">${listing.status.toUpperCase()}</span>`
                 : '';
 
             return `
-                <div class="market-card" onclick="showCardDetail('${listing.cardId}')">
+                <div class="market-card" onclick="showListingDetail('${listingId}','${listing.cardId}')">
                     <div class="market-img-box">
                         <img src="${image}" alt="${cardName}" onerror="this.src='black.jpg'">
                         ${badge}
@@ -1167,8 +1168,10 @@
                     const card = item.card;
                     const listing = item.listings[0] || null;
 
+                    const listingId = listing?.id || '';
+
                     container.innerHTML += `
-                        <div class="market-card" onclick="showCardDetail('${card.id}')">
+                        <div class="market-card" onclick="showListingDetail('${listingId}','${card.id}')">
                             <div class="market-img-box">
                                 <img src="${card.images.large}" alt="${card.name}">
                             </div>
@@ -1188,6 +1191,89 @@
         }
 
         // =============== DETALLE DE CARTA =================
+        async function showListingDetail(listingId, cardId) {
+            if (!listingId && cardId) {
+                return showCardDetail(cardId);
+            }
+
+            showSection('view-card-detail');
+
+            const container = document.getElementById("cardDetailContent");
+            container.innerHTML = "<p>Cargando publicación...</p>";
+
+            try {
+                const [listingRes, cardRes] = await Promise.all([
+                    fetch(`/api/listings/${listingId}`),
+                    cardId ? fetch(`/api/cards/${cardId}`) : Promise.resolve({ ok: false }),
+                ]);
+
+                const listing = await listingRes.json();
+                const cardData = cardRes.ok ? await cardRes.json() : {};
+                const card = cardData.card || null;
+
+                if (!listingRes.ok) {
+                    container.innerHTML = `<p>${listing.message || 'No se pudo cargar la publicación.'}</p>`;
+                    return;
+                }
+
+                const seller = listing.sellerId || listing.seller || {};
+                const available = listing.status === 'aprobada' && listing.isActive !== false;
+                const availabilityLabel = available ? 'Disponible' : 'No disponible';
+                const coverImage = listing.imageData || card?.images?.large || 'black.jpg';
+
+                container.innerHTML = `
+                    <div class="detail-card">
+                        <div class="detail-left">
+                            <img src="${coverImage}" alt="${card?.name || listing.cardId}" class="detail-img" onerror="this.src='black.jpg'">
+                        </div>
+
+                        <div class="detail-right">
+                            <h2>${card?.name || listing.cardId}</h2>
+                            <p><strong>Set:</strong> ${card?.set?.name || 'No disponible'}</p>
+                            <p><strong>Rareza:</strong> ${card?.rarity || 'Desconocida'}</p>
+                            <p><strong>Condición:</strong> ${listing.condition}</p>
+                            <p><strong>Precio:</strong> $${listing.price}</p>
+                            <p><strong>Descripción:</strong> ${listing.description || 'Sin descripción proporcionada.'}</p>
+                            <p><strong>Disponibilidad:</strong> <span class="availability-pill ${available ? 'available' : 'unavailable'}">${availabilityLabel}</span></p>
+
+                            <div class="seller-list">
+                                <div class="seller-card">
+                                    <div class="seller-avatar">${(seller.name || 'V')[0]}</div>
+                                    <div>
+                                        <p class="seller-name">${seller.name || 'Vendedor sin nombre'}</p>
+                                        <p class="seller-rating">${seller.email || 'Correo no disponible'}</p>
+                                        <p class="seller-rating">Rol: ${seller.role || 'vendedor'}</p>
+                                    </div>
+                                    <div class="seller-price">
+                                        $${listing.price}
+                                        <span class="seller-condition">(${listing.condition})</span>
+                                        <span class="availability-pill ${available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
+                                    </div>
+                                    ${available
+                                        ? `<div class="seller-actions">
+                                            <button class="btn-primary" onclick="createOrder('${listing._id || listing.id}','compra')">Comprar</button>
+                                            <button class="btn-secondary" onclick="createOrder('${listing._id || listing.id}','reserva')">Reservar</button>
+                                            <a class="btn-primary" href="mailto:${seller.email || ''}?subject=Interés%20en%20${encodeURIComponent(card?.name || listing.cardId)}" target="_blank" rel="noopener noreferrer">Contactar</a>
+                                        </div>`
+                                        : `<div class="seller-actions disabled">
+                                            <span class="availability-note">No disponible para compra, reserva ni contacto.</span>
+                                        </div>`
+                                    }
+                                </div>
+                            </div>
+
+                            ${card
+                                ? `<button class="btn-secondary ghost" onclick="showCardDetail('${card.id}')">Ver más vendedores</button>`
+                                : ''}
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error(error);
+                container.innerHTML = "<p>Error cargando la publicación.</p>";
+            }
+        }
+
         async function showCardDetail(cardId) {
             showSection('view-card-detail');
 
