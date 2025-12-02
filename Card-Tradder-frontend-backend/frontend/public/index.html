@@ -582,6 +582,13 @@
             countdownIntervals = [];
         }
 
+        function isListingReserved(listing) {
+            if (!listing || !listing.reservedUntil) return false;
+            const expiresAt = new Date(listing.reservedUntil).getTime();
+            if (Number.isNaN(expiresAt)) return false;
+            return expiresAt > Date.now();
+        }
+
         function activateCountdowns(root = document) {
             const timers = root.querySelectorAll('[data-expires-at]');
             timers.forEach((timerEl) => {
@@ -638,7 +645,7 @@
             const seller = listing.sellerId || listing.seller || {};
             const cardName = listing.name || card.name || listing.cardId;
             const image = listing.imageData || card.images?.small || 'black.jpg';
-            const isReserved = !!listing.reservedUntil && listing.isActive === false;
+            const isReserved = isListingReserved(listing);
             const available = listing.status === 'aprobada' && listing.isActive !== false && !isReserved;
             const availabilityLabel = isReserved ? 'Reservada' : available ? 'Disponible' : 'No disponible';
             const listingId = listing.id || listing._id;
@@ -1101,7 +1108,7 @@
             const image = listing.imageData || card.images?.small || 'black.jpg';
             const cardName = listing.name || card.name || listing.cardId;
             const statusClass = listing.status === 'aprobada' ? 'delivered' : 'pending';
-            const isReserved = !!listing.reservedUntil && listing.isActive === false;
+            const isReserved = isListingReserved(listing);
             const availability = isReserved
                 ? 'Reservada'
                 : listing.status === 'aprobada' && listing.isActive !== false
@@ -1729,7 +1736,7 @@
                 }
 
                 const seller = listing.sellerId || listing.seller || {};
-                const isReserved = !!listing.reservedUntil && listing.isActive === false;
+                const isReserved = isListingReserved(listing);
                 const available = listing.status === 'aprobada' && listing.isActive !== false && !isReserved;
                 const availabilityLabel = isReserved ? 'Reservada' : available ? 'Disponible' : 'No disponible';
                 const coverImage = listing.imageData || card?.images?.large || 'black.jpg';
@@ -1846,7 +1853,7 @@
                                 ${
                                     listings.length
                                     ? listings.map(listing => {
-                                        const isReserved = !!listing.reservedUntil && listing.isActive === false;
+                                        const isReserved = isListingReserved(listing);
                                         const available = listing.status === 'aprobada' && listing.isActive !== false && !isReserved;
                                         const availabilityLabel = isReserved ? 'Reservada' : available ? 'Disponible' : 'No disponible';
                                         return `

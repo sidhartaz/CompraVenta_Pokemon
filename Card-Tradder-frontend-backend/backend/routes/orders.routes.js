@@ -9,13 +9,18 @@ const User = require('../models/User');
 const router = express.Router();
 const DEFAULT_RESERVATION_HOURS = 24;
 
-async function markListingReservation(listingId, { reservedBy = null, reservedUntil = null, isActive = true }) {
+async function markListingReservation(listingId, { reservedBy = null, reservedUntil = null, isActive }) {
+  const update = {
+    reservedBy,
+    reservedUntil,
+  };
+
+  if (typeof isActive === 'boolean') {
+    update.isActive = isActive;
+  }
+
   await Listing.findByIdAndUpdate(listingId, {
-    $set: {
-      isActive,
-      reservedBy,
-      reservedUntil,
-    },
+    $set: update,
   });
 }
 
@@ -59,6 +64,13 @@ router.post('/', authRequired, async (req, res) => {
 
     if (!listing.isActive) {
       return res.status(400).json({ message: 'La publicación no está disponible para nuevas órdenes o reservas.' });
+    }
+
+    const reservationActive =
+      !!listing.reservedUntil && new Date(listing.reservedUntil).getTime() > Date.now();
+
+    if (reservationActive) {
+      return res.status(400).json({ message: 'La publicación está reservada en este momento.' });
     }
 
     const weekAgo = new Date(Date.now() - 7 * DAY_IN_MS);
@@ -130,7 +142,6 @@ router.post('/', authRequired, async (req, res) => {
       await markListingReservation(listingId, {
         reservedBy: req.user.id,
         reservedUntil: reservationExpiresAt,
-        isActive: false,
       });
     }
 
@@ -284,7 +295,6 @@ router.patch('/:id/status', authRequired, async (req, res) => {
         await markListingReservation(order.listingId, {
           reservedBy: order.buyerId,
           reservedUntil: order.reservationExpiresAt,
-          isActive: false,
         });
       }
     }
