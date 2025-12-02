@@ -48,7 +48,26 @@ Este documento resume un flujo mínimo para validar la API con herramientas como
 - **Detalle** (`GET /api/cards/:id` de una publicación aprobada)
   - Esperado: datos de la carta y `sellerId`, solo si `status=aprobada`.
 
-## 4) Validaciones adicionales
+## 4) Órdenes, reservas y estados de pago
+- **Crear compra** (`POST /api/orders` con token de cliente)
+  ```json
+  { "listingId": "<id-listing-aprobado>", "type": "compra", "note": "Compra directa" }
+  ```
+  - Esperado: `201 Created` con `status: "pendiente"` y primer registro en `history`.
+- **Crear reserva** (`POST /api/orders` con `type: "reserva"`)
+  - Esperado: estado inicial `reservada` y `history` indicando creación.
+- **Listar órdenes** (`GET /api/orders`)
+  - Admin: todas las órdenes. Vendedor: solo las de sus publicaciones. Cliente: solo sus compras/reservas.
+- **Detalle con historial** (`GET /api/orders/:id`)
+  - Esperado: objeto `history` con cada cambio de estado (`status`, `note`, `changedBy`, `changedAt`).
+- **Actualizar estado** (`PATCH /api/orders/:id/status`)
+  ```json
+  { "status": "pagada", "note": "Pago confirmado por el vendedor" }
+  ```
+  - Solo vendedor/admin pueden marcar `pagada`/`reservada`/`pendiente`; el comprador puede marcar `cancelada`.
+  - Esperado: `200 OK` y nueva entrada en `history`.
+
+## 5) Validaciones adicionales
 - Registrar usuario con rol inválido → `400 Bad Request`.
 - Acceder a rutas admin con rol vendedor/cliente → `403 Forbidden`.
 - Crear listing sin `cardId` o `condition` → `400 Bad Request` (validación de modelo).

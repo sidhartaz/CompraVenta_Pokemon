@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
 const adminRoutes = require('./routes/admin.routes');
+const orderRoutes = require('./routes/orders.routes');
 
 const { authRequired, requireRole } = require('./middlewares/auth');
 const { client: redisClient, connectRedis } = require('./redisClient');
@@ -414,6 +415,7 @@ app.get('/api/cards/:id', async (req, res) => {
   }
 });
 app.use('/api/admin', adminRoutes);
+app.use('/api/orders', orderRoutes);
 // --- 9. RUTA FALLBACK (para que cualquier ruta del frontend cargue index.html) ---
 app.get(/(.*)/, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'public', 'index.html'));

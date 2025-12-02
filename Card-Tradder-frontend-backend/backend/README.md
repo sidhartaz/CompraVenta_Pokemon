@@ -66,6 +66,21 @@ docker compose up --build
 3. El admin consulta `GET /api/admin/publications?status=pendiente` y aprueba/rechaza con `PATCH ... { "status": "aprobada" }`.
 4. Solo las publicaciones **aprobadas** aparecen en `GET /api/cards/search` (catálogo cacheado) y en `GET /api/cards/:id`.
 
+### Órdenes, reservas y pagos externos
+
+- **Crear orden o reserva**: `POST /api/orders` con `listingId` y `type` (`compra` o `reserva`).
+  - `type=compra` → estado inicial `pendiente`.
+  - `type=reserva` → estado inicial `reservada`.
+- **Consultar mis órdenes**: `GET /api/orders`
+  - Admin: todas las órdenes.
+  - Vendedor: órdenes de sus publicaciones.
+  - Cliente: sus compras/reservas.
+- **Detalle con historial**: `GET /api/orders/:id` devuelve la historia de cambios.
+- **Actualizar estado**: `PATCH /api/orders/:id/status { "status": "pagada" | "cancelada" | "reservada" | "pendiente" }`
+  - Vendedor/Admin pueden marcar `pagada`, `reservada`, etc.
+  - El comprador puede cancelar su propia orden (`status=cancelada`).
+  - Cada cambio queda registrado en `history` con quién lo realizó y fecha/hora.
+
 ### Cache Redis
 
 El endpoint `GET /api/cards/search?q=<texto>` se cachea por 60 segundos.
