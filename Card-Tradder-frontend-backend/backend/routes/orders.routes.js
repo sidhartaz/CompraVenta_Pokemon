@@ -66,6 +66,10 @@ router.post('/', authRequired, async (req, res) => {
       return res.status(400).json({ message: 'La publicación debe estar aprobada para generar una orden' });
     }
 
+    if (!listing.isActive) {
+      return res.status(400).json({ message: 'La publicación no está disponible para nuevas órdenes o reservas.' });
+    }
+
     const weekAgo = new Date(Date.now() - 7 * DAY_IN_MS);
     const weeklyOrders = await Order.countDocuments({
       buyerId: req.user.id,
@@ -81,6 +85,18 @@ router.post('/', authRequired, async (req, res) => {
 
     if (normalizedType === 'reserva' && req.user.role !== 'cliente') {
       return res.status(403).json({ message: 'Solo los clientes pueden crear reservas.' });
+    }
+
+    if (normalizedType === 'reserva') {
+      const existingReservation = await Order.findOne({
+        listingId,
+        type: 'reserva',
+        status: { $in: ['reservada', 'pendiente', 'pagada'] },
+      });
+
+      if (existingReservation) {
+        return res.status(400).json({ message: 'Esta publicación ya cuenta con una reserva activa.' });
+      }
     }
     const initialStatus = normalizedType === 'reserva' ? 'reservada' : 'pendiente';
 

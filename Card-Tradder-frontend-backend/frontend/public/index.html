@@ -507,6 +507,7 @@
             const available = listing.status === 'aprobada' && listing.isActive !== false;
             const availabilityLabel = available ? 'Disponible' : 'No disponible';
             const listingId = listing.id || listing._id;
+            const isClient = currentUser && currentUser.role === 'cliente';
 
             return `
                 <div class="publication-card" onclick="showListingDetail('${listingId}','${listing.cardId || ''}')">
@@ -534,7 +535,10 @@
                     </div>
                     ${available
                         ? `<div class="publication-actions">
-                            <button class="btn-secondary" onclick="event.stopPropagation(); createOrder('${listingId}','reserva')">Reservar</button>
+                            ${isClient
+                                ? `<button class="btn-secondary" onclick="event.stopPropagation(); createOrder('${listingId}','reserva')">Reservar</button>`
+                                : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
+                            }
                             <a class="btn-link" onclick="event.stopPropagation();" href="mailto:${seller.email || ''}?subject=Interés%20en%20${encodeURIComponent(cardName)}" target="_blank" rel="noopener noreferrer">Contactar vendedor</a>
                             <button class="btn-secondary ghost" onclick="event.stopPropagation(); showListingDetail('${listingId}','${listing.cardId || ''}')">Ver detalle</button>
                         </div>`
@@ -1359,6 +1363,7 @@
                 const availabilityLabel = available ? 'Disponible' : 'No disponible';
                 const coverImage = listing.imageData || card?.images?.large || 'black.jpg';
                 const displayName = listing.name || card?.name || listing.cardId;
+                const isClient = currentUser && currentUser.role === 'cliente';
 
                 container.innerHTML = `
                     <div class="detail-card">
@@ -1398,7 +1403,10 @@
                                     </div>
                                     ${available
                                         ? `<div class="seller-actions">
-                                            <button class="btn-secondary" onclick="createOrder('${listing._id || listing.id}','reserva')">Reservar</button>
+                                            ${isClient
+                                                ? `<button class="btn-secondary" onclick="createOrder('${listing._id || listing.id}','reserva')">Reservar</button>`
+                                                : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
+                                            }
                                             <a class="btn-primary" href="mailto:${seller.email || ''}?subject=Interés%20en%20${encodeURIComponent(card?.name || listing.cardId)}" target="_blank" rel="noopener noreferrer">Contactar</a>
                                         </div>`
                                         : `<div class="seller-actions disabled">
@@ -1426,6 +1434,7 @@
 
             const container = document.getElementById("cardDetailContent");
             container.innerHTML = "<p>Cargando carta...</p>";
+            const isClient = currentUser && currentUser.role === 'cliente';
 
             try {
                 const res = await fetch(`/api/cards/${cardId}`);
@@ -1477,10 +1486,13 @@
                                                 <span class="seller-condition">(${listing.condition})</span>
                                                 <span class="availability-pill ${available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
                                             </div>
-                                            ${available
-                                                ? `<div class="seller-actions">
+                                        ${available
+                                            ? `<div class="seller-actions">
                                                     <button class="btn-primary" onclick="createOrder('${listing.id}','compra')">Comprar</button>
-                                                    <button class="btn-secondary" onclick="createOrder('${listing.id}','reserva')">Reservar</button>
+                                                    ${isClient
+                                                        ? `<button class="btn-secondary" onclick="createOrder('${listing.id}','reserva')">Reservar</button>`
+                                                        : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
+                                                    }
                                                     <a class="btn-primary" href="mailto:${listing.seller?.email || ''}?subject=Interés%20en%20${encodeURIComponent(card.name)}" target="_blank" rel="noopener noreferrer">Contactar</a>
                                                 </div>`
                                                 : `<div class="seller-actions disabled">
@@ -1504,6 +1516,11 @@
 
         async function createOrder(listingId, type = 'compra') {
             if (!authToken) return alert('Debes iniciar sesión para continuar.');
+
+            if (type === 'reserva' && (!currentUser || currentUser.role !== 'cliente')) {
+                alert('Solo los clientes pueden generar reservas.');
+                return;
+            }
 
             try {
                 const res = await apiFetch('/api/orders', {
