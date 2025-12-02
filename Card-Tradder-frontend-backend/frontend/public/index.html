@@ -521,7 +521,7 @@
             const listingId = listing.id || listing._id;
 
             return `
-                <div class="publication-card">
+                <div class="publication-card" onclick="showListingDetail('${listingId}','${listing.cardId || ''}')">
                     <div class="publication-main">
                         <div class="publication-thumb">
                             <img src="${image}" alt="${cardName}" onerror="this.src='black.jpg'">
@@ -546,14 +546,13 @@
                     </div>
                     ${available
                         ? `<div class="publication-actions">
-                            <button class="btn-primary" onclick="createOrder('${listingId}','compra')">Comprar</button>
-                            <button class="btn-secondary" onclick="createOrder('${listingId}','reserva')">Reservar</button>
-                            <a class="btn-link" href="mailto:${seller.email || ''}?subject=Interés%20en%20${encodeURIComponent(cardName)}" target="_blank" rel="noopener noreferrer">Contactar vendedor</a>
-                            <button class="btn-secondary ghost" onclick="showCardDetail('${listing.cardId}')">Ver detalle</button>
+                            <button class="btn-secondary" onclick="event.stopPropagation(); createOrder('${listingId}','reserva')">Reservar</button>
+                            <a class="btn-link" onclick="event.stopPropagation();" href="mailto:${seller.email || ''}?subject=Interés%20en%20${encodeURIComponent(cardName)}" target="_blank" rel="noopener noreferrer">Contactar vendedor</a>
+                            <button class="btn-secondary ghost" onclick="event.stopPropagation(); showListingDetail('${listingId}','${listing.cardId || ''}')">Ver detalle</button>
                         </div>`
                         : `<div class="publication-actions disabled">
                             <span class="availability-note">No disponible para compra, reserva ni contacto.</span>
-                            <button class="btn-secondary ghost" onclick="showCardDetail('${listing.cardId}')">Ver detalle</button>
+                            <button class="btn-secondary ghost" onclick="event.stopPropagation(); showListingDetail('${listingId}','${listing.cardId || ''}')">Ver detalle</button>
                         </div>`
                     }
                 </div>
