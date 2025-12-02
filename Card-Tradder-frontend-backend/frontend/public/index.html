@@ -158,7 +158,7 @@
                 <div class="user-avatar-small"><i class="fa-solid fa-user"></i></div>
                 <div class="user-info-mini">
                     <span id="user-display-name">Usuario</span>
-                    <a href="#" onclick="logout()">Cerrar sesión</a>
+                    <small class="subtext">Sesión activa</small>
                 </div>
             </div>
         </aside>
@@ -883,18 +883,19 @@
             if (inbox) inbox.innerHTML = '<p class="subtext">Cargando notificaciones...</p>';
 
             try {
-                const [pendingRes, approvedRes, reservationsRes] = await Promise.all([
-                    apiFetch('/api/listings?status=pendiente'),
-                    apiFetch('/api/listings'),
+                const [mineRes, reservationsRes] = await Promise.all([
+                    apiFetch('/api/listings/mine'),
                     authToken ? apiFetch('/api/orders?type=reserva') : Promise.resolve({ ok: false, json: async () => ({ orders: [] }) })
                 ]);
 
-                const pending = await pendingRes.json();
-                const approved = await approvedRes.json();
+                if (!mineRes.ok) {
+                    throw new Error('No se pudieron cargar tus publicaciones');
+                }
+
+                const minePayload = await mineRes.json();
+                const mine = (minePayload.listings || []).filter(lst => (lst.sellerId?._id || lst.sellerId) === currentUser.id);
                 const reservationsPayload = reservationsRes.ok ? await reservationsRes.json() : { orders: [] };
                 const reservations = reservationsPayload.orders || [];
-
-                const mine = [...pending, ...approved].filter(lst => (lst.sellerId?._id || lst.sellerId) === currentUser.id);
 
                 sellerListingsCache = mine;
                 sellerReservationMap = new Map();

@@ -241,6 +241,32 @@ app.get('/api/listings', async (req, res) => {
   }
 });
 
+// Obtener todas las publicaciones del vendedor (incluyendo inactivas o reservadas)
+app.get('/api/listings/mine', authRequired, requireRole('vendedor'), async (req, res) => {
+  try {
+    await expireOldReservations(Order, Listing);
+
+    const listings = await Listing.find({ sellerId: req.user.id })
+      .sort({ createdAt: -1 })
+      .populate('sellerId', 'name email role')
+      .lean();
+
+    const cardIds = [...new Set(listings.map((lst) => lst.cardId).filter(Boolean))];
+    const cards = await Card.find({ id: { $in: cardIds } }).lean();
+    const cardMap = new Map(cards.map((card) => [card.id, card]));
+
+    const enriched = listings.map((lst) => ({
+      ...lst,
+      card: cardMap.get(lst.cardId) || null,
+    }));
+
+    return res.json({ listings: enriched });
+  } catch (error) {
+    console.error('Error en GET /api/listings/mine:', error);
+    return res.status(500).json({ message: 'Error del servidor' });
+  }
+});
+
 // Obtener la publicación destacada por búsquedas
 app.get('/api/listings/featured', async (req, res) => {
   try {
