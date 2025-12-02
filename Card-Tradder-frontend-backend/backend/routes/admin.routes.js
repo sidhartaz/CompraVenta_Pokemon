@@ -66,7 +66,16 @@ router.get('/publications', authRequired, requireRole('admin'), async (req, res)
       .populate('sellerId', 'name email role')
       .lean();
 
-    res.json({ listings });
+    const cardIds = [...new Set(listings.map((lst) => lst.cardId))];
+    const cards = await require('../models/Card').find({ id: { $in: cardIds } }).lean();
+    const cardMap = new Map(cards.map((card) => [card.id, card]));
+
+    const enriched = listings.map((lst) => ({
+      ...lst,
+      card: cardMap.get(lst.cardId) || null,
+    }));
+
+    res.json({ listings: enriched });
   } catch (err) {
     res.status(500).json({ message: 'Error cargando publicaciones' });
   }

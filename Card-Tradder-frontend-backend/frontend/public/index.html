@@ -198,36 +198,7 @@
                     <a href="#" onclick="showView('catalog')">Ver todo</a>
                 </div>
 
-                <div class="cards-grid">
-                    <div class="market-card">
-                        <div class="market-img-box">
-                            <img src="charizard.png" alt="Charizard">
-                            <span class="badge-overlay new">NUEVO</span>
-                        </div>
-                        <div class="market-info">
-                            <span class="card-game-badge">Pokémon TCG</span>
-                            <h4 class="market-title">Charizard Base Set 1st Ed.</h4>
-                            <div class="market-meta">
-                                <span class="condition-badge">NM</span>
-                                <span class="market-price">$150.000</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="market-card">
-                        <div class="market-img-box">
-                            <img src="Blue-Eyes White Dragon.jpg" alt="Blue Eyes" onerror="this.src='charizard.png'">
-                        </div>
-                        <div class="market-info">
-                            <span class="card-game-badge">Yu-Gi-Oh!</span>
-                            <h4 class="market-title">Blue-Eyes White Dragon</h4>
-                            <div class="market-meta">
-                                <span class="condition-badge">Mint</span>
-                                <span class="market-price">$85.000</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div class="cards-grid" id="home-listings"></div>
             </div>
 
             <!-- VISTA DASHBOARD -->
@@ -284,13 +255,7 @@
 
                         <div class="card publications-list">
                             <div class="card-header"><h3>Publicaciones Activas</h3></div>
-                            <div class="list-item">
-                                <div class="item-info">
-                                    <strong>1. Pikachu Illustrator</strong>
-                                    <span>Estado: Near Mint</span>
-                                </div>
-                                <span class="status-pill delivered">Entregado</span>
-                            </div>
+                            <div class="card-body" id="seller-listings"></div>
                         </div>
                     </div>
                 </div>
@@ -329,7 +294,7 @@
                             <div class="card-body">
                                 <table class="table" id="admin-publications-table">
                                     <tr>
-                                        <th>Título</th>
+                                        <th>Carta</th>
                                         <th>Vendedor</th>
                                         <th>Precio</th>
                                         <th>Acciones</th>
@@ -383,35 +348,36 @@
                 </button>
             </div>
             <div class="modal-body">
-                <form>
-                    <div class="upload-area">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
-                        <p>Arrastra la foto de tu carta aquí</p>
-                        <span class="upload-note">JPG, PNG (Máx 5MB)</span>
-                    </div>
+                <form id="publish-form" onsubmit="handleCreateListing(event)">
                     <div class="form-group">
-                        <label>Nombre de la Carta</label>
-                        <input type="text" class="form-input" placeholder="Ej: Charizard Base Set">
+                        <label>ID de la carta (TCGplayer ID guardado en base de datos)</label>
+                        <input type="text" class="form-input" id="listing-card-id" placeholder="base1-4" required>
+                        <small>Usa el buscador para copiar el ID exacto de la carta.</small>
                     </div>
                     <div class="form-row-2">
                         <div class="form-group">
-                            <label>Juego</label>
-                            <select class="form-input">
-                                <option>Pokémon TCG</option>
-                                <option>Yu-Gi-Oh!</option>
-                                <option>Mitos y Leyendas</option>
+                            <label>Condición</label>
+                            <select class="form-input" id="listing-condition" required>
+                                <option value="Mint">Mint</option>
+                                <option value="Near Mint">Near Mint</option>
+                                <option value="Lightly Played">Lightly Played</option>
+                                <option value="Damaged">Damaged</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label>Precio (CLP)</label>
-                            <input type="number" class="form-input" placeholder="150000">
+                            <input type="number" class="form-input" id="listing-price" placeholder="150000" min="0" required>
                         </div>
                     </div>
+                    <div class="form-group">
+                        <label>Descripción</label>
+                        <textarea class="form-input" id="listing-description" rows="3" placeholder="Notas opcionales sobre la carta"></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" onclick="toggleModal()">Cancelar</button>
+                        <button type="submit" class="btn-primary">Enviar a Revisión</button>
+                    </div>
                 </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="toggleModal()">Cancelar</button>
-                <button class="btn-primary">Enviar a Revisión</button>
             </div>
         </div>
     </div>
@@ -419,9 +385,43 @@
     <!-- ======================================================= -->
     <!-- LÓGICA JAVASCRIPT                                       -->
     <!-- ======================================================= -->
-    <script>
+        <script>
         let authToken = null;
         let currentUser = null;
+
+        function apiFetch(url, options = {}) {
+            const headers = options.headers || {};
+            if (authToken) {
+                headers['Authorization'] = 'Bearer ' + authToken;
+            }
+            return fetch(url, { ...options, headers });
+        }
+
+        function renderListingCard(listing) {
+            const card = listing.card || {};
+            const image = card.images?.large || 'black.jpg';
+            const cardName = card.name || listing.cardId;
+            const badge = listing.status && listing.status !== 'aprobada'
+                ? `<span class="badge-overlay warning">${listing.status.toUpperCase()}</span>`
+                : '';
+
+            return `
+                <div class="market-card" onclick="showCardDetail('${listing.cardId}')">
+                    <div class="market-img-box">
+                        <img src="${image}" alt="${cardName}" onerror="this.src='black.jpg'">
+                        ${badge}
+                    </div>
+                    <div class="market-info">
+                        <span class="card-game-badge">${card.set?.name || 'Carta'}</span>
+                        <h4 class="market-title">${cardName}</h4>
+                        <div class="market-meta">
+                            <span class="condition-badge">${listing.condition}</span>
+                            <span class="market-price">$${listing.price}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
         // Cambiar entre login / registro
         function toggleAuth(view) {
@@ -451,14 +451,19 @@
             document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
             if (element) element.classList.add('active');
 
-            const titles = { 
-                home: 'Bienvenido', 
-                dashboard: 'Mi Panel', 
+            const titles = {
+                home: 'Bienvenido',
+                dashboard: 'Mi Panel',
                 catalog: 'Buscar Cartas',
                 admin: 'Panel de Administración',
                 'card-detail': 'Detalle de Carta'
             };
             document.getElementById('page-title').textContent = titles[viewName] || 'Card Trader';
+
+            if (viewName === 'catalog') {
+                const query = document.getElementById('searchInput')?.value || '';
+                if (!query) loadCatalogListings();
+            }
         }
 
         // Helper para cambiar de vista desde otras funciones (detalle de carta)
@@ -475,7 +480,7 @@
         // Al entrar después de login
         function enterApp(user) {
             currentUser = user;
-            
+
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('main-app').classList.remove('hidden');
             
@@ -489,6 +494,90 @@
             adminItems.forEach(el => {
                 el.style.display = (user.role === 'admin') ? 'block' : 'none';
             });
+
+            loadHomeListings();
+            loadCatalogListings();
+            loadSellerListings();
+        }
+
+        async function loadHomeListings() {
+            const container = document.getElementById('home-listings');
+            if (!container) return;
+            container.innerHTML = '<p>Cargando publicaciones...</p>';
+
+            try {
+                const res = await fetch('/api/listings');
+                const data = await res.json();
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = '<p>No hay publicaciones aprobadas.</p>';
+                    return;
+                }
+
+                const latest = data.slice(0, 4);
+                container.innerHTML = latest.map(renderListingCard).join('');
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<p>Error cargando publicaciones.</p>';
+            }
+        }
+
+        async function loadCatalogListings() {
+            const container = document.getElementById('resultsContainer');
+            if (!container) return;
+            container.innerHTML = '<p>Cargando catálogo...</p>';
+
+            try {
+                const res = await fetch('/api/listings');
+                const data = await res.json();
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = '<p>No hay publicaciones activas.</p>';
+                    return;
+                }
+
+                container.innerHTML = data.map(renderListingCard).join('');
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<p>Error cargando catálogo.</p>';
+            }
+        }
+
+        async function loadSellerListings() {
+            if (!currentUser || currentUser.role !== 'vendedor') return;
+            const container = document.getElementById('seller-listings');
+            if (!container) return;
+
+            container.innerHTML = '<p>Cargando tus publicaciones...</p>';
+
+            try {
+                const [pendingRes, approvedRes] = await Promise.all([
+                    fetch('/api/listings?status=pendiente'),
+                    fetch('/api/listings'),
+                ]);
+
+                const pending = await pendingRes.json();
+                const approved = await approvedRes.json();
+                const mine = [...pending, ...approved].filter(lst => lst.sellerId?._id === currentUser.id);
+
+                if (!mine.length) {
+                    container.innerHTML = '<p>No tienes publicaciones aún.</p>';
+                    return;
+                }
+
+                container.innerHTML = mine.map(lst => `
+                    <div class="list-item">
+                        <div class="item-info">
+                            <strong>${lst.card?.name || lst.cardId}</strong>
+                            <span>Estado: ${lst.condition}</span>
+                        </div>
+                        <span class="status-pill ${lst.status === 'aprobada' ? 'delivered' : 'pending'}">${lst.status}</span>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<p>Error cargando tus publicaciones.</p>';
+            }
         }
 
         function logout() {
@@ -562,9 +651,7 @@
         async function loadPendingPublications() {
             if (!authToken) return alert('No autenticado');
 
-            const res = await fetch('/api/admin/publications?status=pendiente', {
-                headers: { 'Authorization': 'Bearer ' + authToken }
-            });
+            const res = await apiFetch('/api/admin/publications?status=pendiente');
 
             const data = await res.json();
             if (!res.ok) {
@@ -574,15 +661,15 @@
             const table = document.getElementById('admin-publications-table');
             table.innerHTML = `
                 <tr>
-                    <th>Título</th>
+                    <th>Carta</th>
                     <th>Vendedor</th>
                     <th>Precio</th>
                     <th>Acciones</th>
                 </tr>
                 ${data.listings.map(p => `
                     <tr>
-                        <td>${p.title}</td>
-                        <td>${p.owner?.name || 'N/A'} (${p.owner?.email || ''})</td>
+                        <td>${p.card?.name || p.cardId}</td>
+                        <td>${p.sellerId?.name || 'N/A'} (${p.sellerId?.email || ''})</td>
                         <td>${p.price}</td>
                         <td>
                             <button onclick="approvePublication('${p._id}')">Aprobar</button>
@@ -595,12 +682,9 @@
         }
 
         async function approvePublication(id) {
-            const res = await fetch('/api/admin/publications/' + id + '/status', {
+            const res = await apiFetch('/api/admin/publications/' + id + '/status', {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + authToken
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: 'aprobada' })
             });
             const data = await res.json();
@@ -609,13 +693,14 @@
         }
 
         async function rejectPublication(id) {
-            const res = await fetch('/api/admin/publications/' + id + '/status', {
+            const rejectionReason = prompt('Motivo de rechazo:');
+            if (rejectionReason === null) return;
+            if (!rejectionReason.trim()) return alert('Debes indicar un motivo.');
+
+            const res = await apiFetch('/api/admin/publications/' + id + '/status', {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + authToken
-                },
-                body: JSON.stringify({ status: 'rechazada' })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'rechazada', rejectionReason })
             });
             const data = await res.json();
             if (!res.ok) return alert('Error: ' + data.message);
@@ -624,10 +709,7 @@
 
         async function deletePublication(id) {
             if (!confirm('¿Eliminar publicación?')) return;
-            const res = await fetch('/api/admin/publications/' + id, {
-                method: 'DELETE',
-                headers: { 'Authorization': 'Bearer ' + authToken }
-            });
+            const res = await apiFetch('/api/admin/publications/' + id, { method: 'DELETE' });
             const data = await res.json();
             if (!res.ok) return alert('Error: ' + data.message);
             loadPendingPublications();
@@ -693,13 +775,47 @@
             }
         }
 
+        async function handleCreateListing(e) {
+            e.preventDefault();
+            if (!authToken) return alert('Debes iniciar sesión como vendedor.');
+
+            const cardId = document.getElementById('listing-card-id').value.trim();
+            const price = Number(document.getElementById('listing-price').value);
+            const condition = document.getElementById('listing-condition').value;
+            const description = document.getElementById('listing-description').value;
+
+            try {
+                const res = await apiFetch('/api/listings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cardId, price, condition, description })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    alert('✅ Publicación enviada a revisión.');
+                    document.getElementById('publish-form').reset();
+                    toggleModal();
+                    loadSellerListings();
+                    loadHomeListings();
+                    loadCatalogListings();
+                } else {
+                    alert('❌ Error: ' + (data.message || 'No se pudo crear la publicación'));
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error de conexión con el servidor.');
+            }
+        }
+
         // =============== BUSCAR CARTAS ====================
         async function searchCards() {
             const query = document.getElementById("searchInput").value.trim();
             const container = document.getElementById("resultsContainer");
 
             if (!query) {
-                container.innerHTML = "<p>Ingresa un nombre para buscar.</p>";
+                loadCatalogListings();
                 return;
             }
 
@@ -784,8 +900,11 @@
                                                 $${listing.price}
                                                 <span class="seller-condition">(${listing.condition})</span>
                                             </div>
-
-                                            <a class="btn-primary" href="mailto:${listing.seller?.email || ''}?subject=Interés%20en%20${encodeURIComponent(card.name)}" target="_blank" rel="noopener noreferrer">Contactar</a>
+                                            <div class="seller-actions">
+                                                <button class="btn-primary" onclick="createOrder('${listing.id}','compra')">Comprar</button>
+                                                <button class="btn-secondary" onclick="createOrder('${listing.id}','reserva')">Reservar</button>
+                                                <a class="btn-primary" href="mailto:${listing.seller?.email || ''}?subject=Interés%20en%20${encodeURIComponent(card.name)}" target="_blank" rel="noopener noreferrer">Contactar</a>
+                                            </div>
                                         </div>
                                       `).join("")
                                     : "<p>No hay vendedores aún.</p>"
@@ -798,6 +917,28 @@
             } catch (error) {
                 console.error(error);
                 container.innerHTML = "<p>Error cargando la carta.</p>";
+            }
+        }
+
+        async function createOrder(listingId, type = 'compra') {
+            if (!authToken) return alert('Debes iniciar sesión para continuar.');
+
+            try {
+                const res = await apiFetch('/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ listingId, type })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    alert(`Orden creada con estado ${data.order.status}. Revisa tu historial.`);
+                } else {
+                    alert('❌ Error: ' + (data.message || 'No se pudo crear la orden'));
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error de conexión con el servidor.');
             }
         }
 

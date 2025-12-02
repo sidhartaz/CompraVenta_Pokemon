@@ -171,8 +171,16 @@ app.get('/api/listings', async (req, res) => {
       .lean();
 
     const visibleListings = listings.filter((lst) => lst.sellerId?.subscriptionActive !== false);
+    const cardIds = [...new Set(visibleListings.map((lst) => lst.cardId))];
+    const cards = await Card.find({ id: { $in: cardIds } }).lean();
+    const cardMap = new Map(cards.map((card) => [card.id, card]));
 
-    return res.json(visibleListings);
+    const enriched = visibleListings.map((lst) => ({
+      ...lst,
+      card: cardMap.get(lst.cardId) || null,
+    }));
+
+    return res.json(enriched);
   } catch (error) {
     console.error('Error en GET /api/listings:', error);
     return res.status(500).json({ message: 'Error del servidor' });
@@ -358,6 +366,7 @@ app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
       const activeListings = listings.filter((lst) => lst.sellerId?.subscriptionActive !== false);
 
       const formattedListings = activeListings.map((lst) => ({
+        id: lst._id,
         price: lst.price,
         condition: lst.condition,
         seller: lst.sellerId,
@@ -429,6 +438,7 @@ app.get('/api/cards/:id', async (req, res) => {
     const activeListings = listings.filter((lst) => lst.sellerId?.subscriptionActive !== false);
 
     const formattedListings = activeListings.map((lst) => ({
+      id: lst._id,
       price: lst.price,
       condition: lst.condition,
       seller: lst.sellerId,
