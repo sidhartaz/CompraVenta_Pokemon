@@ -9,6 +9,7 @@ const listingSchema = new mongoose.Schema({
 
   // Datos de la publicación
   name: { type: String, required: true, trim: true },
+  slug: { type: String, required: true, unique: true, index: true },
   price: { type: Number, required: true },
   condition: { type: String, required: true },
   description: { type: String },

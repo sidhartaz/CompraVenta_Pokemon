@@ -30,6 +30,41 @@ const Listing = require('./models/Listing');
 // --- 3. CONEXIÓN A BASE DE DATOS ---
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/cardtrader';
 
+function slugifyBase(text) {
+  return text
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
+async function generateUniqueSlug(name, excludeId = null) {
+  const base = slugifyBase(name) || 'publicacion';
+  let candidate = base;
+  let suffix = 0;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const existing = await Listing.findOne({
+      slug: candidate,
+      ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+    })
+      .select('_id')
+      .lean();
+
+    if (!existing) {
+      return candidate;
+    }
+
+    suffix += 1;
+    candidate = `${base}-${suffix}`;
+  }
+}
+
 const mongoConnection = mongoose
   .connect(mongoUri)
   .then(() => console.log('✅ Base de Datos MongoDB conectada'))
@@ -231,9 +266,12 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
       return res.status(400).json({ message: 'Límite semanal alcanzado: solo puedes publicar 2 cartas por semana.' });
     }
 
+    const slug = await generateUniqueSlug(name);
+
     const newListing = new Listing({
       cardId,
       name,
+      slug,
       price,
       condition,
       description,
@@ -272,7 +310,10 @@ app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, 
     if (condition !== undefined) listing.condition = condition;
     if (description !== undefined) listing.description = description;
     if (imageData !== undefined) listing.imageData = imageData;
-    if (name !== undefined) listing.name = name;
+    if (name !== undefined) {
+      listing.name = name;
+      listing.slug = await generateUniqueSlug(name, listing._id);
+    }
 
     await listing.save();
 
@@ -374,6 +415,7 @@ app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
         imageData: lst.imageData,
         name: lst.name,
         cardId: lst.cardId,
+        slug: lst.slug,
       });
     }
 
@@ -407,6 +449,7 @@ app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
         imageData: lst.imageData,
         name: lst.name,
         cardId: lst.cardId,
+        slug: lst.slug,
       });
     }
 
