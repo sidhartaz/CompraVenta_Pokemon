@@ -479,6 +479,8 @@
     <!-- LÓGICA JAVASCRIPT                                       -->
     <!-- ======================================================= -->
         <script>
+        const AUTH_TOKEN_KEY = 'authToken';
+        const CURRENT_USER_KEY = 'currentUser';
         let authToken = null;
         let currentUser = null;
         let listingImageBase64 = null;
@@ -489,6 +491,63 @@
         let sellerReservationMap = new Map();
         let sellerNotifications = [];
         let editingListingId = null;
+
+        function persistSession(token, user) {
+            authToken = token;
+            currentUser = user;
+            if (token) {
+                sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+            }
+            if (user) {
+                sessionStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+            }
+            localStorage.removeItem(AUTH_TOKEN_KEY);
+            localStorage.removeItem(CURRENT_USER_KEY);
+        }
+
+        function clearPersistedSession() {
+            authToken = null;
+            currentUser = null;
+            sessionStorage.removeItem(AUTH_TOKEN_KEY);
+            sessionStorage.removeItem(CURRENT_USER_KEY);
+            localStorage.removeItem(AUTH_TOKEN_KEY);
+            localStorage.removeItem(CURRENT_USER_KEY);
+        }
+
+        function getStoredSession() {
+            let token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+            let user = null;
+
+            const userData = sessionStorage.getItem(CURRENT_USER_KEY);
+            if (userData) {
+                try {
+                    user = JSON.parse(userData);
+                } catch (err) {
+                    user = null;
+                }
+            }
+
+            if (!token) {
+                const legacyToken = localStorage.getItem(AUTH_TOKEN_KEY);
+                if (legacyToken) {
+                    token = legacyToken;
+                    const legacyUser = localStorage.getItem(CURRENT_USER_KEY);
+                    if (legacyUser) {
+                        sessionStorage.setItem(CURRENT_USER_KEY, legacyUser);
+                        try {
+                            user = JSON.parse(legacyUser);
+                        } catch (err) {
+                            user = null;
+                        }
+                    }
+                    sessionStorage.setItem(AUTH_TOKEN_KEY, legacyToken);
+                    localStorage.removeItem(AUTH_TOKEN_KEY);
+                    localStorage.removeItem(CURRENT_USER_KEY);
+                }
+            }
+
+            return { token, user };
+        }
 
         function apiFetch(url, options = {}) {
             const headers = options.headers || {};
@@ -1183,10 +1242,7 @@
         }
 
         function logout() {
-            authToken = null;
-            currentUser = null;
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('currentUser');
+            clearPersistedSession();
             location.reload();
         }
 
@@ -1390,10 +1446,7 @@
                 const data = await res.json();
 
                 if(res.ok) {
-                    authToken = data.token;
-                    currentUser = data.user;
-                    localStorage.setItem('authToken', authToken);
-                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    persistSession(data.token, data.user);
                     enterApp(data.user);
                 } else {
                     alert('❌ Error: ' + data.message);
@@ -1882,7 +1935,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            const savedToken = localStorage.getItem('authToken');
+            const { token: savedToken } = getStoredSession();
 
             if (savedToken) {
                 try {
@@ -1899,14 +1952,11 @@
                     const data = await res.json();
                     if (!data?.user) throw new Error('Usuario inválido en sesión');
 
-                    authToken = savedToken;
-                    currentUser = data.user;
-                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    persistSession(savedToken, data.user);
                     enterApp(data.user);
                 } catch (err) {
                     console.warn('No se pudo restaurar la sesión desde token', err);
-                    localStorage.removeItem('authToken');
-                    localStorage.removeItem('currentUser');
+                    clearPersistedSession();
                 }
             }
         });
