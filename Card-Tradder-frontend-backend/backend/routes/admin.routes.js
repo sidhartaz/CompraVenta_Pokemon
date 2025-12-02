@@ -1,7 +1,7 @@
 const express = require('express');
 const { authRequired, requireRole } = require('../middlewares/auth');
 const User = require('../models/User');
-const Listing = require('../models/Listing'); // adapta al nombre de tu modelo
+const Listing = require('../models/Listing');
 
 const router = express.Router();
 
@@ -62,7 +62,7 @@ router.get('/publications', authRequired, requireRole('admin'), async (req, res)
     if (status) filter.status = status;
 
     const listings = await Listing.find(filter)
-      .populate('owner', 'name email role')
+      .populate('sellerId', 'name email role')
       .lean();
 
     res.json({ listings });
@@ -85,7 +85,7 @@ router.patch('/publications/:id/status', authRequired, requireRole('admin'), asy
       req.params.id,
       { $set: { status } },
       { new: true }
-    );
+    ).populate('sellerId', 'name email role');
 
     if (!listing) {
       return res.status(404).json({ message: 'Publicación no encontrada' });

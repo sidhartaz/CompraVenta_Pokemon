@@ -1,24 +1,26 @@
 const mongoose = require('mongoose');
 
 const listingSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  description: String,
+  // Referencia a la carta (id proveniente de la colección Card)
+  cardId: { type: String, required: true },
+
+  // Usuario vendedor que publica la carta
+  sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+
+  // Datos de la publicación
   price: { type: Number, required: true },
-  // carta asociada, si usas un modelo Card:
-  card: { type: mongoose.Schema.Types.ObjectId, ref: 'Card' },
+  condition: { type: String, required: true },
+  description: { type: String },
 
-  // dueño de la publicación
-  owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-
-  // estado de validación
+  // Estado de validación por parte de admin
   status: {
     type: String,
     enum: ['pendiente', 'aprobada', 'rechazada'],
-    default: 'pendiente'
+    default: 'pendiente',
   },
 
   isActive: { type: Boolean, default: true },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
 });
 
 module.exports = mongoose.model('Listing', listingSchema);
