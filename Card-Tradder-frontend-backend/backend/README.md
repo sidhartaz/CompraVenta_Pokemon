@@ -55,7 +55,7 @@ docker compose up --build
 - **Login**: `POST /api/login` devuelve JWT y rol.
 - **Ruta protegida**: `GET /api/me` requiere header `Authorization: Bearer <token>`.
 - **Restricción por rol**:
-  - `GET /api/listings` acepta `?status=` (pendiente/aprobada/rechazada) y devuelve el vendedor (solo `status=aprobada` se usa en catálogos de cartas).
+  - `GET /api/listings` devuelve únicamente publicaciones aprobadas por defecto (opcional `?status=` para otros filtros) y devuelve el vendedor (solo `status=aprobada` se usa en catálogos de cartas).
   - `POST/PUT/DELETE /api/listings` solo para rol `vendedor` y únicamente sobre sus propias publicaciones.
   - `GET /api/admin/publications` y `PATCH /api/admin/publications/:id/status` requieren rol `admin` para aprobar o rechazar publicaciones.
 
@@ -65,6 +65,15 @@ docker compose up --build
 2. El vendedor crea un listing con `cardId`, `price` y `condition` → queda en `status: pendiente`.
 3. El admin consulta `GET /api/admin/publications?status=pendiente` y aprueba/rechaza con `PATCH ... { "status": "aprobada" }`.
 4. Solo las publicaciones **aprobadas** aparecen en `GET /api/cards/search` (catálogo cacheado) y en `GET /api/cards/:id`.
+
+### Validaciones de negocio clave
+
+- Los vendedores deben tener la propiedad `subscriptionActive: true` (editable por admin vía `PATCH /api/admin/users/:id`) para crear publicaciones, ser visibles en catálogos y recibir órdenes.
+- Cada vendedor puede crear **máximo 2 publicaciones por semana**; si llega al límite, el endpoint `/api/listings` responde con 400 y mensaje de error.
+- Cada comprador puede generar **máximo 2 órdenes o reservas por semana** (excluye canceladas). Si supera el límite, `/api/orders` responde con 400.
+- Las publicaciones rechazadas deben incluir `rejectionReason`; el admin debe enviarla al usar `PATCH /api/admin/publications/:id/status` con `status="rechazada"`.
+- Las órdenes en estado `reservada` se auto-cancelan tras 24 horas sin confirmación de pago; el historial y las notificaciones de la orden reflejan la caducidad y el comprador recibe aviso.
+- Cuando un vendedor marca una orden como `pagada` o `cancelada`, el sistema agrega una notificación para el comprador (campo `notifications`).
 
 ### Órdenes, reservas y pagos externos
 
@@ -91,6 +100,11 @@ El endpoint `GET /api/cards/search?q=<texto>` se cachea por 60 segundos.
 ### Pruebas manuales (Postman/cURL)
 
 Consulta `docs/POSTMAN_TESTS.md` para un guion rápido de pruebas de autenticación, creación/aprobación de publicaciones y verificación del caché con encabezados `X-Cache`. Incluye los cuerpos de ejemplo y los tokens requeridos para cada rol.
+
+Guía exprés en Postman:
+- Crea un **entorno** con `baseUrl` (`http://localhost:3000`) y variables de token (`adminToken`, `sellerToken`, `buyerToken`).
+- En cada login agrega en la pestaña **Tests** el script que guarda el `token` en la variable correspondiente (`pm.environment.set("adminToken", data.token)`), así las demás peticiones usan `Authorization: Bearer {{adminToken}}`.
+- Sigue el orden: registro/login → activar suscripción de vendedor → crear listing → aprobarlo → consumir catálogo → crear órdenes/reservas y actualizar estados.
 
 ### Semillas / usuarios de ejemplo
 

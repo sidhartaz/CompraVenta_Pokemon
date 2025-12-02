@@ -773,10 +773,11 @@
                                     listings.length
                                     ? listings.map(listing => `
                                         <div class="seller-card">
-                                            <img src="${listing.seller.avatar}" class="seller-avatar">
+                                            <div class="seller-avatar">${(listing.seller?.name || 'Vendedor')[0]}</div>
                                             <div>
-                                                <p class="seller-name">${listing.seller.name}</p>
-                                                <p class="seller-rating">⭐ ${listing.seller.rating}</p>
+                                                <p class="seller-name">${listing.seller?.name || 'Vendedor sin nombre'}</p>
+                                                <p class="seller-rating">${listing.seller?.email || 'Correo no disponible'}</p>
+                                                <p class="seller-rating">Rol: ${listing.seller?.role || 'vendedor'}</p>
                                             </div>
 
                                             <div class="seller-price">
@@ -784,7 +785,7 @@
                                                 <span class="seller-condition">(${listing.condition})</span>
                                             </div>
 
-                                            <button class="btn-primary">Contactar</button>
+                                            <a class="btn-primary" href="mailto:${listing.seller?.email || ''}?subject=Interés%20en%20${encodeURIComponent(card.name)}" target="_blank" rel="noopener noreferrer">Contactar</a>
                                         </div>
                                       `).join("")
                                     : "<p>No hay vendedores aún.</p>"

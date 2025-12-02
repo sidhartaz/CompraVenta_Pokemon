@@ -18,6 +18,7 @@ const listingSchema = new mongoose.Schema({
     enum: ['pendiente', 'aprobada', 'rechazada'],
     default: 'pendiente',
   },
+  rejectionReason: { type: String },
 
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },

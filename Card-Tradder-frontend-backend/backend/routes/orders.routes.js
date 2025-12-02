@@ -2,8 +2,30 @@ const express = require('express');
 const { authRequired } = require('../middlewares/auth');
 const Listing = require('../models/Listing');
 const Order = require('../models/Order');
+const User = require('../models/User');
 
 const router = express.Router();
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+async function expireOldReservations() {
+  const expirationDate = new Date(Date.now() - DAY_IN_MS);
+  const staleOrders = await Order.find({ status: 'reservada', createdAt: { $lt: expirationDate } });
+
+  for (const order of staleOrders) {
+    order.status = 'cancelada';
+    order.history.push({
+      status: 'cancelada',
+      note: 'Reserva auto-cancelada por no confirmar pago en 24 horas',
+      changedBy: order.sellerId,
+    });
+    order.notifications.push({
+      type: 'cancelada',
+      message: 'Reserva cancelada automáticamente por no confirmar el pago a tiempo.',
+      recipient: 'buyer',
+    });
+    await order.save();
+  }
+}
 
 // Crear una orden o reserva
 router.post('/', authRequired, async (req, res) => {
@@ -21,6 +43,22 @@ router.post('/', authRequired, async (req, res) => {
 
     if (listing.status !== 'aprobada') {
       return res.status(400).json({ message: 'La publicación debe estar aprobada para generar una orden' });
+    }
+
+    const seller = await User.findById(listing.sellerId).select('subscriptionActive').lean();
+    if (!seller?.subscriptionActive) {
+      return res.status(400).json({ message: 'El vendedor no tiene una suscripción activa; no se pueden crear órdenes.' });
+    }
+
+    const weekAgo = new Date(Date.now() - 7 * DAY_IN_MS);
+    const weeklyOrders = await Order.countDocuments({
+      buyerId: req.user.id,
+      status: { $ne: 'cancelada' },
+      createdAt: { $gte: weekAgo },
+    });
+
+    if (weeklyOrders >= 2) {
+      return res.status(400).json({ message: 'Solo puedes crear 2 compras o reservas por semana.' });
     }
 
     const normalizedType = type === 'reserva' ? 'reserva' : 'compra';
@@ -59,6 +97,8 @@ router.post('/', authRequired, async (req, res) => {
 // Listar órdenes (según rol)
 router.get('/', authRequired, async (req, res) => {
   try {
+    await expireOldReservations();
+
     const filter = {};
     const { status } = req.query;
     if (status) filter.status = status;
@@ -88,6 +128,8 @@ router.get('/', authRequired, async (req, res) => {
 // Detalle de una orden
 router.get('/:id', authRequired, async (req, res) => {
   try {
+    await expireOldReservations();
+
     const order = await Order.findById(req.params.id)
       .populate('buyerId', 'name email role')
       .populate('sellerId', 'name email role')
@@ -141,6 +183,15 @@ router.patch('/:id/status', authRequired, async (req, res) => {
       note: note || `Estado actualizado a ${status}`,
       changedBy: req.user.id,
     });
+
+    const sellerNotifyingPayment = isSeller && ['pagada', 'cancelada'].includes(status);
+    if (sellerNotifyingPayment) {
+      order.notifications.push({
+        type: status,
+        message: `La orden fue marcada como ${status} por el vendedor.`,
+        recipient: 'buyer',
+      });
+    }
 
     await order.save();
 

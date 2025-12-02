@@ -30,7 +30,7 @@ const Listing = require('./models/Listing');
 // --- 3. CONEXIÓN A BASE DE DATOS ---
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/cardtrader';
 
-mongoose
+const mongoConnection = mongoose
   .connect(mongoUri)
   .then(() => console.log('✅ Base de Datos MongoDB conectada'))
   .catch((err) => {
@@ -158,19 +158,21 @@ app.get('/api/admin/ventas', authRequired, requireRole('admin'), (req, res) => {
 
 // --- 6. CRUD LISTINGS (recurso principal) ---
 
-// Obtener todas las publicaciones
+// Obtener todas las publicaciones aprobadas (catálogo)
 app.get('/api/listings', async (req, res) => {
   try {
-    const filter = {};
+    const filter = { status: 'aprobada' };
     if (req.query.status) {
       filter.status = req.query.status;
     }
 
     const listings = await Listing.find(filter)
-      .populate('sellerId', 'name email role')
+      .populate('sellerId', 'name email role subscriptionActive')
       .lean();
 
-    return res.json(listings);
+    const visibleListings = listings.filter((lst) => lst.sellerId?.subscriptionActive !== false);
+
+    return res.json(visibleListings);
   } catch (error) {
     console.error('Error en GET /api/listings:', error);
     return res.status(500).json({ message: 'Error del servidor' });
@@ -181,11 +183,19 @@ app.get('/api/listings', async (req, res) => {
 app.get('/api/listings/:id', async (req, res) => {
   try {
     const listing = await Listing.findById(req.params.id)
-      .populate('sellerId', 'name email role')
+      .populate('sellerId', 'name email role subscriptionActive')
       .lean();
 
     if (!listing) {
       return res.status(404).json({ message: 'Listing no encontrado' });
+    }
+
+    if (listing.status !== 'aprobada') {
+      return res.status(403).json({ message: 'La publicación aún no está aprobada.' });
+    }
+
+    if (listing.sellerId?.subscriptionActive === false) {
+      return res.status(403).json({ message: 'El vendedor no tiene una suscripción activa.' });
     }
 
     return res.json(listing);
@@ -202,6 +212,21 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
 
     if (!cardId || !price || !condition) {
       return res.status(400).json({ message: 'Faltan datos: cardId, price, condition' });
+    }
+
+    const seller = await User.findById(req.user.id);
+    if (!seller?.subscriptionActive) {
+      return res.status(403).json({ message: 'Necesitas una suscripción activa para publicar y aparecer en el catálogo.' });
+    }
+
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentListings = await Listing.countDocuments({
+      sellerId: req.user.id,
+      createdAt: { $gte: weekAgo },
+    });
+
+    if (recentListings >= 2) {
+      return res.status(400).json({ message: 'Límite semanal alcanzado: solo puedes publicar 2 cartas por semana.' });
     }
 
     const newListing = new Listing({
@@ -327,10 +352,12 @@ app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
 
     for (const card of cards) {
       const listings = await Listing.find({ cardId: card.id, status: 'aprobada' })
-        .populate('sellerId', 'name email role')
+        .populate('sellerId', 'name email role subscriptionActive')
         .lean();
 
-      const formattedListings = listings.map((lst) => ({
+      const activeListings = listings.filter((lst) => lst.sellerId?.subscriptionActive !== false);
+
+      const formattedListings = activeListings.map((lst) => ({
         price: lst.price,
         condition: lst.condition,
         seller: lst.sellerId,
@@ -396,10 +423,12 @@ app.get('/api/cards/:id', async (req, res) => {
     }
 
     const listings = await Listing.find({ cardId, status: 'aprobada' })
-      .populate('sellerId', 'name email role')
+      .populate('sellerId', 'name email role subscriptionActive')
       .lean();
 
-    const formattedListings = listings.map((lst) => ({
+    const activeListings = listings.filter((lst) => lst.sellerId?.subscriptionActive !== false);
+
+    const formattedListings = activeListings.map((lst) => ({
       price: lst.price,
       condition: lst.condition,
       seller: lst.sellerId,
@@ -422,6 +451,10 @@ app.get(/(.*)/, (req, res) => {
 });
 
 // --- 10. INICIAR SERVIDOR ---
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+  });
+}
+
+module.exports = { app, mongoConnection };

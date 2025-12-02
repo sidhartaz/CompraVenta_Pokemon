@@ -14,6 +14,16 @@ const historySchema = new mongoose.Schema(
   { _id: false }
 );
 
+const notificationSchema = new mongoose.Schema(
+  {
+    type: { type: String, enum: ['pagada', 'cancelada', 'info'], default: 'info' },
+    message: { type: String, required: true },
+    recipient: { type: String, enum: ['buyer', 'seller'], default: 'buyer' },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const orderSchema = new mongoose.Schema(
   {
     listingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Listing', required: true },
@@ -29,6 +39,7 @@ const orderSchema = new mongoose.Schema(
     total: { type: Number },
     history: { type: [historySchema], default: [] },
     notes: { type: String },
+    notifications: { type: [notificationSchema], default: [] },
   },
   { timestamps: true }
 );
