@@ -169,7 +169,21 @@
             <header class="top-header">
                 <h1 id="page-title">Bienvenido</h1>
                 <div class="header-actions">
-                    <button class="btn-secondary"><i class="fa-regular fa-bell"></i></button>
+                    <div class="notification-wrapper">
+                        <button class="btn-secondary" id="notifications-toggle" onclick="toggleNotifications()" aria-label="Notificaciones">
+                            <i class="fa-regular fa-bell"></i>
+                            <span id="notification-badge" class="pill-counter hidden">0</span>
+                        </button>
+                        <div class="notification-dropdown hidden" id="notification-dropdown">
+                            <div class="notice-header">
+                                <h4>Notificaciones</h4>
+                                <span class="pill-counter" id="notification-counter">0</span>
+                            </div>
+                            <div class="notice-list" id="notification-list">
+                                <p class="subtext">Sin notificaciones nuevas.</p>
+                            </div>
+                        </div>
+                    </div>
                     <button class="btn-primary seller-only" onclick="toggleModal()">
                         <i class="fa-solid fa-plus"></i> Nueva Publicación
                     </button>
@@ -257,7 +271,6 @@
                                 </div>
                             </div>
                             <div class="card-body" id="seller-listings"></div>
-                            <div class="card-body muted" id="seller-reservation-inbox"></div>
                         </div>
                     </div>
                 </div>
@@ -870,17 +883,16 @@
 
         async function loadSellerListings() {
             const container = document.getElementById('seller-listings');
-            const inbox = document.getElementById('seller-reservation-inbox');
             if (!container) return;
 
             if (!currentUser || currentUser.role !== 'vendedor') {
                 container.innerHTML = '<p class="subtext">Solo los vendedores pueden gestionar publicaciones.</p>';
-                if (inbox) inbox.innerHTML = '<p class="subtext">Inicia sesión como vendedor para ver avisos.</p>';
+                renderSellerNotifications();
                 return;
             }
 
             container.innerHTML = '<p>Cargando tus publicaciones...</p>';
-            if (inbox) inbox.innerHTML = '<p class="subtext">Cargando notificaciones...</p>';
+            renderSellerNotifications(true);
 
             try {
                 const [mineRes, reservationsRes] = await Promise.all([
@@ -933,44 +945,76 @@
             } catch (err) {
                 console.error(err);
                 container.innerHTML = '<p>Error cargando tus publicaciones.</p>';
-                if (inbox) inbox.innerHTML = '<p class="subtext">No se pudieron cargar las notificaciones.</p>';
+                renderSellerNotifications();
             }
         }
 
-        function renderSellerNotifications() {
-            const inbox = document.getElementById('seller-reservation-inbox');
-            if (!inbox) return;
+        function renderSellerNotifications(isLoading = false) {
+            const badge = document.getElementById('notification-badge');
+            const counter = document.getElementById('notification-counter');
+            const list = document.getElementById('notification-list');
 
-            if (!sellerNotifications.length) {
-                inbox.innerHTML = '<p class="subtext">No hay notificaciones de reserva.</p>';
+            if (!badge || !counter || !list) return;
+
+            if (!currentUser || currentUser.role !== 'vendedor') {
+                list.innerHTML = '<p class="subtext">Inicia sesión como vendedor para ver notificaciones.</p>';
+                badge.classList.add('hidden');
+                counter.textContent = '0';
                 return;
             }
 
-            inbox.innerHTML = `
-                <div class="notice-header">
-                    <h4>Notificaciones de reserva</h4>
-                    <span class="pill-counter">${sellerNotifications.length} nuevas</span>
+            if (isLoading) {
+                list.innerHTML = '<p class="subtext">Cargando notificaciones...</p>';
+                badge.classList.add('hidden');
+                counter.textContent = '0';
+                return;
+            }
+
+            if (!sellerNotifications.length) {
+                list.innerHTML = '<p class="subtext">No hay notificaciones de reserva.</p>';
+                badge.classList.add('hidden');
+                counter.textContent = '0';
+                return;
+            }
+
+            badge.textContent = sellerNotifications.length;
+            badge.classList.remove('hidden');
+            counter.textContent = sellerNotifications.length;
+            list.innerHTML = sellerNotifications.map(note => `
+                <div class="notice-item">
+                    <div class="notice-icon"><i class="fa-regular fa-bell"></i></div>
+                    <div class="notice-body">
+                        <p class="notice-title">${note.message}</p>
+                        <p class="notice-meta">
+                            ${note.listingName || 'Publicación'}
+                            ${note.buyer?.name ? ' · ' + note.buyer.name : ''}
+                            ${note.expiresAt ? ' · vence ' + formatDate(note.expiresAt) : ''}
+                        </p>
+                    </div>
+                    <div class="notice-actions">
+                        <button class="btn-secondary ghost" onclick="showListingDetail('${note.listingId || ''}','')">Ver</button>
+                    </div>
                 </div>
-                <div class="notice-list">
-                    ${sellerNotifications.map(note => `
-                        <div class="notice-item">
-                            <div class="notice-icon"><i class="fa-regular fa-bell"></i></div>
-                            <div class="notice-body">
-                                <p class="notice-title">${note.message}</p>
-                                <p class="notice-meta">
-                                    ${note.listingName || 'Publicación'}
-                                    ${note.buyer?.name ? ' · ' + note.buyer.name : ''}
-                                    ${note.expiresAt ? ' · vence ' + formatDate(note.expiresAt) : ''}
-                                </p>
-                            </div>
-                            <div class="notice-actions">
-                                <button class="btn-secondary ghost" onclick="showListingDetail('${note.listingId || ''}','')">Ver</button>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
+            `).join('');
         }
+
+        function toggleNotifications(forceClose = false) {
+            const dropdown = document.getElementById('notification-dropdown');
+            if (!dropdown) return;
+
+            const shouldOpen = forceClose ? false : dropdown.classList.contains('hidden');
+            dropdown.classList.toggle('hidden', !shouldOpen);
+        }
+
+        document.addEventListener('click', (event) => {
+            const wrapper = document.querySelector('.notification-wrapper');
+            const dropdown = document.getElementById('notification-dropdown');
+            if (!wrapper || !dropdown) return;
+
+            if (!wrapper.contains(event.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
 
         function renderSellerListing(listing, reservation) {
             const card = listing.card || {};

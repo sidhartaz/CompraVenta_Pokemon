@@ -356,6 +356,11 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
 .notice-title { margin: 0; font-weight: 600; color: var(--text-dark); }
 .notice-meta { margin: 2px 0 0; color: var(--text-gray); font-size: 0.9rem; }
 .notice-actions { margin-left: auto; }
+.notification-wrapper { position: relative; }
+.notification-dropdown { position: absolute; right: 0; top: 48px; width: 360px; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 14px 40px -12px rgba(0,0,0,0.2); padding: 14px; z-index: 10; }
+.notification-dropdown.hidden { display: none; }
+.notification-dropdown .pill-counter { background: #1d4ed8; color: #fff; border: none; }
+.notification-dropdown .subtext { margin: 0; }
 .inline-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 .featured-card { display: flex; gap: 16px; align-items: center; width: 100%; }
