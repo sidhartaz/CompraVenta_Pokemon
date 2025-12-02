@@ -193,6 +193,28 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
     color: #991b1b;
 }
 
+.availability-pill.reserved {
+    background: #fef9c3;
+    color: #92400e;
+}
+
+.reservation-timer {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-weight: 600;
+    color: #92400e;
+}
+
+.reservation-timer .fa-clock {
+    color: #d97706;
+}
+
+.reservation-timer .countdown-label {
+    font-variant-numeric: tabular-nums;
+}
+
 .availability-note {
     color: var(--text-gray);
     font-weight: 600;

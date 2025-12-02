@@ -25,6 +25,8 @@ const listingSchema = new mongoose.Schema({
   rejectionReason: { type: String },
 
   isActive: { type: Boolean, default: true },
+  reservedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  reservedUntil: { type: Date },
   createdAt: { type: Date, default: Date.now },
 });
 

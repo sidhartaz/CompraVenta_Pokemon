@@ -2,30 +2,21 @@ const express = require('express');
 const { authRequired } = require('../middlewares/auth');
 const Listing = require('../models/Listing');
 const Order = require('../models/Order');
+const { expireOldReservations, DAY_IN_MS } = require('../utils/reservations');
 const Card = require('../models/Card');
 const User = require('../models/User');
 
 const router = express.Router();
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_RESERVATION_HOURS = 24;
 
-async function expireOldReservations() {
-  const expirationDate = new Date(Date.now() - DAY_IN_MS);
-  const staleOrders = await Order.find({ status: 'reservada', createdAt: { $lt: expirationDate } });
-
-  for (const order of staleOrders) {
-    order.status = 'cancelada';
-    order.history.push({
-      status: 'cancelada',
-      note: 'Reserva auto-cancelada por no confirmar pago en 24 horas',
-      changedBy: order.sellerId,
-    });
-    order.notifications.push({
-      type: 'cancelada',
-      message: 'Reserva cancelada automáticamente por no confirmar el pago a tiempo.',
-      recipient: 'buyer',
-    });
-    await order.save();
-  }
+async function markListingReservation(listingId, { reservedBy = null, reservedUntil = null, isActive = true }) {
+  await Listing.findByIdAndUpdate(listingId, {
+    $set: {
+      isActive,
+      reservedBy,
+      reservedUntil,
+    },
+  });
 }
 
 async function attachCardData(orders) {
@@ -102,6 +93,10 @@ router.post('/', authRequired, async (req, res) => {
 
     const buyer = await User.findById(req.user.id).select('name');
     const notifications = [];
+    const reservationExpiresAt =
+      normalizedType === 'reserva'
+        ? new Date(Date.now() + DEFAULT_RESERVATION_HOURS * 60 * 60 * 1000)
+        : null;
 
     if (normalizedType === 'reserva') {
       notifications.push({
@@ -128,7 +123,16 @@ router.post('/', authRequired, async (req, res) => {
       ],
       notes: note,
       notifications,
+      reservationExpiresAt,
     });
+
+    if (normalizedType === 'reserva') {
+      await markListingReservation(listingId, {
+        reservedBy: req.user.id,
+        reservedUntil: reservationExpiresAt,
+        isActive: false,
+      });
+    }
 
     await order
       .populate('buyerId', 'name email role')
@@ -145,7 +149,7 @@ router.post('/', authRequired, async (req, res) => {
 // Listar órdenes (según rol)
 router.get('/', authRequired, async (req, res) => {
   try {
-    await expireOldReservations();
+    await expireOldReservations(Order, Listing);
 
     const filter = {};
     const { status, type } = req.query;
@@ -187,7 +191,7 @@ router.get('/', authRequired, async (req, res) => {
 // Detalle de una orden
 router.get('/:id', authRequired, async (req, res) => {
   try {
-    await expireOldReservations();
+    await expireOldReservations(Order, Listing);
 
     const order = await Order.findById(req.params.id)
       .populate('buyerId', 'name email role')
@@ -239,12 +243,18 @@ router.patch('/:id/status', authRequired, async (req, res) => {
       }
     }
 
+    const wasReservation = order.type === 'reserva';
+
     order.status = status;
     order.history.push({
       status,
       note: note || `Estado actualizado a ${status}`,
       changedBy: req.user.id,
     });
+
+    if (wasReservation && status === 'reservada' && !order.reservationExpiresAt) {
+      order.reservationExpiresAt = new Date(Date.now() + DEFAULT_RESERVATION_HOURS * 60 * 60 * 1000);
+    }
 
     const sellerNotifyingPayment = isSeller && ['pagada', 'cancelada'].includes(status);
     if (sellerNotifyingPayment) {
@@ -256,6 +266,28 @@ router.patch('/:id/status', authRequired, async (req, res) => {
     }
 
     await order.save();
+
+    if (wasReservation) {
+      if (status === 'cancelada') {
+        await markListingReservation(order.listingId, {
+          reservedBy: null,
+          reservedUntil: null,
+          isActive: true,
+        });
+      } else if (status === 'pagada') {
+        await markListingReservation(order.listingId, {
+          reservedBy: null,
+          reservedUntil: null,
+          isActive: false,
+        });
+      } else if (status === 'reservada') {
+        await markListingReservation(order.listingId, {
+          reservedBy: order.buyerId,
+          reservedUntil: order.reservationExpiresAt,
+          isActive: false,
+        });
+      }
+    }
 
     await order
       .populate('buyerId', 'name email role')

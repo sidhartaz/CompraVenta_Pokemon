@@ -457,6 +457,7 @@
         let listingImageBase64 = null;
         let historyOrdersCache = [];
         let historyTypeFilter = '';
+        let countdownIntervals = [];
 
         function apiFetch(url, options = {}) {
             const headers = options.headers || {};
@@ -470,6 +471,49 @@
             if (!dateString) return '';
             const date = new Date(dateString);
             return date.toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+        }
+
+        function formatCountdown(expiresAt) {
+            const target = new Date(expiresAt).getTime();
+            const diff = target - Date.now();
+            if (Number.isNaN(target)) return '';
+            if (diff <= 0) return 'Reserva expirada';
+
+            const totalSeconds = Math.floor(diff / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+
+            return `${hours}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+        }
+
+        function clearCountdowns() {
+            countdownIntervals.forEach(clearInterval);
+            countdownIntervals = [];
+        }
+
+        function activateCountdowns(root = document) {
+            const timers = root.querySelectorAll('[data-expires-at]');
+            timers.forEach((timerEl) => {
+                const label = timerEl.querySelector('.countdown-label');
+                const pill = timerEl.closest('.availability-pill');
+                const expiresAt = timerEl.getAttribute('data-expires-at');
+                if (!expiresAt || !label) return;
+
+                const update = () => {
+                    const text = formatCountdown(expiresAt);
+                    label.textContent = text;
+                    if (text === 'Reserva expirada' && pill) {
+                        pill.classList.remove('available', 'reserved');
+                        pill.classList.add('unavailable');
+                        pill.textContent = 'Reserva expirada';
+                    }
+                };
+
+                update();
+                const intervalId = setInterval(update, 1000);
+                countdownIntervals.push(intervalId);
+            });
         }
 
         function renderListingCard(listing) {
@@ -504,8 +548,9 @@
             const seller = listing.sellerId || listing.seller || {};
             const cardName = listing.name || card.name || listing.cardId;
             const image = listing.imageData || card.images?.small || 'black.jpg';
-            const available = listing.status === 'aprobada' && listing.isActive !== false;
-            const availabilityLabel = available ? 'Disponible' : 'No disponible';
+            const isReserved = !!listing.reservedUntil && listing.isActive === false;
+            const available = listing.status === 'aprobada' && listing.isActive !== false && !isReserved;
+            const availabilityLabel = isReserved ? 'Reservada' : available ? 'Disponible' : 'No disponible';
             const listingId = listing.id || listing._id;
             const isClient = currentUser && currentUser.role === 'cliente';
 
@@ -518,7 +563,7 @@
                         <div class="publication-info">
                             <div class="publication-title-row">
                                 <h4 class="publication-title">${cardName}</h4>
-                                <span class="availability-pill ${available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
+                                <span class="availability-pill ${isReserved ? 'reserved' : available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
                             </div>
                             <p class="publication-desc">${listing.description || 'Sin descripción'}</p>
                             <div class="publication-meta">
@@ -526,6 +571,10 @@
                                 <span class="seller-chip"><i class="fa-solid fa-envelope"></i> ${seller.email || 'Correo no disponible'}</span>
                                 <span class="seller-chip"><i class="fa-solid fa-tag"></i> ${listing.condition}</span>
                             </div>
+                            ${isReserved ? `<div class="reservation-timer" data-expires-at="${listing.reservedUntil}">
+                                <i class="fa-regular fa-clock"></i>
+                                <span class="countdown-label">Cargando contador...</span>
+                            </div>` : ''}
                         </div>
                         <div class="publication-price">
                             <span>Precio</span>
@@ -780,6 +829,8 @@
                 }
 
                 container.innerHTML = data.map(renderPublicationCard).join('');
+                clearCountdowns();
+                activateCountdowns(container);
             } catch (err) {
                 console.error(err);
                 container.innerHTML = '<p>Error cargando publicaciones.</p>';
@@ -813,6 +864,8 @@
                 }
 
                 container.innerHTML = mine.map(renderSellerListing).join('');
+                clearCountdowns();
+                activateCountdowns(container);
             } catch (err) {
                 console.error(err);
                 container.innerHTML = '<p>Error cargando tus publicaciones.</p>';
@@ -824,7 +877,12 @@
             const image = listing.imageData || card.images?.small || 'black.jpg';
             const cardName = listing.name || card.name || listing.cardId;
             const statusClass = listing.status === 'aprobada' ? 'delivered' : 'pending';
-            const availability = listing.status === 'aprobada' && listing.isActive !== false ? 'Disponible' : 'No disponible';
+            const isReserved = !!listing.reservedUntil && listing.isActive === false;
+            const availability = isReserved
+                ? 'Reservada'
+                : listing.status === 'aprobada' && listing.isActive !== false
+                    ? 'Disponible'
+                    : 'No disponible';
             const listingId = listing.id || listing._id;
 
             return `
@@ -837,9 +895,13 @@
                         <div class="seller-pub-meta">
                             <span class="condition-badge">${listing.condition}</span>
                             <span class="status-pill ${statusClass}">${listing.status}</span>
-                            <span class="availability-pill ${availability === 'Disponible' ? 'available' : 'unavailable'}">${availability}</span>
+                            <span class="availability-pill ${isReserved ? 'reserved' : availability === 'Disponible' ? 'available' : 'unavailable'}">${availability}</span>
                         </div>
                         <div class="seller-pub-price">$${listing.price}</div>
+                        ${isReserved ? `<div class="reservation-timer" data-expires-at="${listing.reservedUntil}">
+                            <i class="fa-regular fa-clock"></i>
+                            <span class="countdown-label">Cargando contador...</span>
+                        </div>` : ''}
                     </div>
                     <div class="seller-pub-actions">
                         <button class="btn-secondary danger" onclick="deleteListing('${listingId}')">Eliminar</button>
@@ -1359,8 +1421,9 @@
                 }
 
                 const seller = listing.sellerId || listing.seller || {};
-                const available = listing.status === 'aprobada' && listing.isActive !== false;
-                const availabilityLabel = available ? 'Disponible' : 'No disponible';
+                const isReserved = !!listing.reservedUntil && listing.isActive === false;
+                const available = listing.status === 'aprobada' && listing.isActive !== false && !isReserved;
+                const availabilityLabel = isReserved ? 'Reservada' : available ? 'Disponible' : 'No disponible';
                 const coverImage = listing.imageData || card?.images?.large || 'black.jpg';
                 const displayName = listing.name || card?.name || listing.cardId;
                 const isClient = currentUser && currentUser.role === 'cliente';
@@ -1374,8 +1437,13 @@
                         <div class="detail-right">
                             <div class="detail-title-row">
                                 <h2>${displayName}</h2>
-                                <span class="availability-pill ${available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
+                                <span class="availability-pill ${isReserved ? 'reserved' : available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
                             </div>
+
+                            ${isReserved ? `<div class="reservation-timer" data-expires-at="${listing.reservedUntil}">
+                                <i class="fa-regular fa-clock"></i>
+                                <span class="countdown-label">Cargando contador...</span>
+                            </div>` : ''}
 
                             <div class="detail-meta">
                                 <p><strong>Set:</strong> ${card?.set?.name || 'No disponible'}</p>
@@ -1423,6 +1491,8 @@
                         </div>
                     </div>
                 `;
+                clearCountdowns();
+                activateCountdowns(container);
             } catch (error) {
                 console.error(error);
                 container.innerHTML = "<p>Error cargando la publicación.</p>";
@@ -1468,8 +1538,9 @@
                                 ${
                                     listings.length
                                     ? listings.map(listing => {
-                                        const available = listing.status === 'aprobada' && listing.isActive !== false;
-                                        const availabilityLabel = available ? 'Disponible' : 'No disponible';
+                                        const isReserved = !!listing.reservedUntil && listing.isActive === false;
+                                        const available = listing.status === 'aprobada' && listing.isActive !== false && !isReserved;
+                                        const availabilityLabel = isReserved ? 'Reservada' : available ? 'Disponible' : 'No disponible';
                                         return `
                                         <div class="seller-card">
                                             <div class="seller-avatar">${(listing.seller?.name || 'Vendedor')[0]}</div>
@@ -1484,8 +1555,12 @@
                                             <div class="seller-price">
                                                 $${listing.price}
                                                 <span class="seller-condition">(${listing.condition})</span>
-                                                <span class="availability-pill ${available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
+                                                <span class="availability-pill ${isReserved ? 'reserved' : available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
                                             </div>
+                                            ${isReserved ? `<div class="reservation-timer" data-expires-at="${listing.reservedUntil}">
+                                                <i class="fa-regular fa-clock"></i>
+                                                <span class="countdown-label">Cargando contador...</span>
+                                            </div>` : ''}
                                         ${available
                                             ? `<div class="seller-actions">
                                                     <button class="btn-primary" onclick="createOrder('${listing.id}','compra')">Comprar</button>
@@ -1508,6 +1583,8 @@
 
                     </div>
                 `;
+                clearCountdowns();
+                activateCountdowns(container);
             } catch (error) {
                 console.error(error);
                 container.innerHTML = "<p>Error cargando la carta.</p>";
@@ -1532,6 +1609,10 @@
                 const data = await res.json();
                 if (res.ok) {
                     alert(`Orden creada con estado ${data.order.status}. Revisa tu historial.`);
+                    if (type === 'reserva') {
+                        loadPublicationsBoard();
+                        loadSellerListings();
+                    }
                 } else {
                     alert('❌ Error: ' + (data.message || 'No se pudo crear la orden'));
                 }

@@ -6,6 +6,7 @@ const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
 const adminRoutes = require('./routes/admin.routes');
 const orderRoutes = require('./routes/orders.routes');
+const { expireOldReservations } = require('./utils/reservations');
 
 const { authRequired, requireRole } = require('./middlewares/auth');
 const { client: redisClient, connectRedis } = require('./redisClient');
@@ -26,6 +27,7 @@ app.use(express.static(path.join(__dirname, '..', 'frontend', 'public')));
 const User = require('./models/User');
 const Card = require('./models/Card');
 const Listing = require('./models/Listing');
+const Order = require('./models/Order');
 
 // --- 3. CONEXIÓN A BASE DE DATOS ---
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/cardtrader';
@@ -196,6 +198,8 @@ app.get('/api/admin/ventas', authRequired, requireRole('admin'), (req, res) => {
 // Obtener todas las publicaciones aprobadas y activas (catálogo)
 app.get('/api/listings', async (req, res) => {
   try {
+    await expireOldReservations(Order, Listing);
+
     const filter = { status: 'aprobada', isActive: true };
     if (req.query.status) {
       filter.status = req.query.status;
@@ -224,6 +228,8 @@ app.get('/api/listings', async (req, res) => {
 // Obtener la publicación destacada por búsquedas
 app.get('/api/listings/featured', async (req, res) => {
   try {
+    await expireOldReservations(Order, Listing);
+
     const featured = await Listing.findOne({ status: 'aprobada', isActive: true })
       .sort({ searchCount: -1, createdAt: -1 })
       .populate('sellerId', 'name email role')
@@ -250,6 +256,8 @@ app.get('/api/listings/featured', async (req, res) => {
 // Obtener una publicación por ID
 app.get('/api/listings/:id', async (req, res) => {
   try {
+    await expireOldReservations(Order, Listing);
+
     const listing = await Listing.findById(req.params.id)
       .populate('sellerId', 'name email role')
       .lean();

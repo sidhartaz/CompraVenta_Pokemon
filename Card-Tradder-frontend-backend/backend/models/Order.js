@@ -36,6 +36,7 @@ const orderSchema = new mongoose.Schema(
       enum: ['pendiente', 'reservada', 'pagada', 'cancelada'],
       default: 'pendiente',
     },
+    reservationExpiresAt: { type: Date },
     total: { type: Number },
     history: { type: [historySchema], default: [] },
     notes: { type: String },
