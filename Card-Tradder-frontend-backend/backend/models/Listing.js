@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
 const listingSchema = new mongoose.Schema({
-  // Referencia a la carta (id proveniente de la colección Card)
-  cardId: { type: String, required: true },
+  // Referencia opcional a la carta (id proveniente de la colección Card)
+  cardId: { type: String },
 
   // Usuario vendedor que publica la carta
   sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

@@ -78,10 +78,7 @@ Este documento resume un flujo mínimo para validar la API con herramientas como
   - Solo vendedor/admin pueden marcar `pagada`/`reservada`/`pendiente`; el comprador puede marcar `cancelada`.
   - Esperado: `200 OK` y nueva entrada en `history`.
 
-## 5) Límite semanal
-- **Límite de publicaciones (vendedor)**: crea 2 listings en la misma semana y verifica que el tercer `POST {{baseUrl}}/api/listings` responda `400` con mensaje de límite alcanzado.
-- **Límite de órdenes (comprador)**: crea 2 órdenes/reservas y constata que el tercer `POST {{baseUrl}}/api/orders` devuelve `400`.
-## 6) Validaciones adicionales
+## 5) Validaciones adicionales
 - Registrar usuario con rol inválido → `400 Bad Request`.
 - Acceder a rutas admin con rol vendedor/cliente → `403 Forbidden`.
-- Crear listing sin `cardId` o `condition` → `400 Bad Request` (validación de modelo).
+- Crear listing sin `name`, `condition` o `price` → `400 Bad Request` (validación de modelo).

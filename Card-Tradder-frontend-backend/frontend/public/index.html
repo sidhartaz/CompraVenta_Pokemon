@@ -424,8 +424,8 @@
                     </div>
                     <div class="form-group">
                         <label>ID de la carta (TCGplayer ID guardado en base de datos)</label>
-                        <input type="text" class="form-input" id="listing-card-id" placeholder="base1-4" required>
-                        <small>Usa el buscador para copiar el ID exacto de la carta.</small>
+                        <input type="text" class="form-input" id="listing-card-id" placeholder="base1-4">
+                        <small>Usa el buscador para copiar el ID exacto de la carta (opcional).</small>
                     </div>
                     <div class="form-row-2">
                         <div class="form-group">
@@ -985,10 +985,15 @@
             }
 
             try {
+                const payload = { name, price, condition, description, imageData: listingImageBase64 };
+                if (cardId) {
+                    payload.cardId = cardId;
+                }
+
                 const res = await apiFetch('/api/listings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, cardId, price, condition, description, imageData: listingImageBase64 })
+                    body: JSON.stringify(payload)
                 });
 
                 const data = await res.json();

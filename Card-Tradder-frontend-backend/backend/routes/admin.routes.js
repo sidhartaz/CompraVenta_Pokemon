@@ -65,7 +65,7 @@ router.get('/publications', authRequired, requireRole('admin'), async (req, res)
       .populate('sellerId', 'name email role')
       .lean();
 
-    const cardIds = [...new Set(listings.map((lst) => lst.cardId))];
+    const cardIds = [...new Set(listings.map((lst) => lst.cardId).filter(Boolean))];
     const cards = await require('../models/Card').find({ id: { $in: cardIds } }).lean();
     const cardMap = new Map(cards.map((card) => [card.id, card]));
 

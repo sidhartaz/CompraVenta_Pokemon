@@ -82,7 +82,7 @@ router.post('/', authRequired, async (req, res) => {
 
     const order = await Order.create({
       listingId,
-      cardId: listing.cardId,
+      cardId: listing.cardId || null,
       sellerId: listing.sellerId,
       buyerId: req.user.id,
       type: normalizedType,

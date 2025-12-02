@@ -62,13 +62,12 @@ docker compose up --build
 ### Flujo mínimo de publicaciones
 
 1. Crear usuarios con `role: vendedor` y `role: admin` (ver sección de semillas).
-2. El vendedor crea un listing con `cardId`, `price`, `condition`, `description` y, opcionalmente, `imageData` (base64) → queda en `status: pendiente`.
+2. El vendedor crea un listing con `name`, `price`, `condition`, `description` y, opcionalmente, `cardId` (TCG), `imageData` (base64) → queda en `status: pendiente`.
 3. El admin consulta `GET /api/admin/publications?status=pendiente` y aprueba/rechaza con `PATCH ... { "status": "aprobada" }`.
 4. Solo las publicaciones **aprobadas** aparecen en `GET /api/cards/search` (catálogo cacheado) y en `GET /api/cards/:id`.
 
 ### Validaciones de negocio clave
 
-- Cada vendedor puede crear **máximo 2 publicaciones por semana**; si llega al límite, el endpoint `/api/listings` responde con 400 y mensaje de error.
 - Cada comprador puede generar **máximo 2 órdenes o reservas por semana** (excluye canceladas). Si supera el límite, `/api/orders` responde con 400.
 - Las publicaciones rechazadas deben incluir `rejectionReason`; el admin debe enviarla al usar `PATCH /api/admin/publications/:id/status` con `status="rechazada"`.
 - Las órdenes en estado `reservada` se auto-cancelan tras 24 horas sin confirmación de pago; el historial y las notificaciones de la orden reflejan la caducidad y el comprador recibe aviso.

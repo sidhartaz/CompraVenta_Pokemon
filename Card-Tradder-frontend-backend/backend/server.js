@@ -205,7 +205,7 @@ app.get('/api/listings', async (req, res) => {
       .populate('sellerId', 'name email role')
       .lean();
 
-    const cardIds = [...new Set(listings.map((lst) => lst.cardId))];
+    const cardIds = [...new Set(listings.map((lst) => lst.cardId).filter(Boolean))];
     const cards = await Card.find({ id: { $in: cardIds } }).lean();
     const cardMap = new Map(cards.map((card) => [card.id, card]));
 
@@ -252,18 +252,8 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
   try {
     const { cardId, price, condition, description, imageData, name } = req.body;
 
-    if (!cardId || !price || !condition || !name) {
-      return res.status(400).json({ message: 'Faltan datos: cardId, name, price, condition' });
-    }
-
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const recentListings = await Listing.countDocuments({
-      sellerId: req.user.id,
-      createdAt: { $gte: weekAgo },
-    });
-
-    if (recentListings >= 2) {
-      return res.status(400).json({ message: 'Límite semanal alcanzado: solo puedes publicar 2 cartas por semana.' });
+    if (!name || price === undefined || !condition) {
+      return res.status(400).json({ message: 'Faltan datos: name, price, condition' });
     }
 
     const slug = await generateUniqueSlug(name);
@@ -405,8 +395,11 @@ app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
     }
 
     for (const lst of listingsForCards) {
-      const entry = resultsMap.get(lst.cardId);
-      if (!entry) continue;
+      const key = lst.cardId || `listing-${lst._id}`;
+      if (!resultsMap.has(key)) {
+        resultsMap.set(key, { card: null, listings: [] });
+      }
+      const entry = resultsMap.get(key);
       entry.listings.push({
         id: lst._id,
         price: lst.price,
@@ -425,7 +418,7 @@ app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
 
     const extraCardIds = listingsByName
       .map((lst) => lst.cardId)
-      .filter((id) => !resultsMap.has(id));
+      .filter((id) => id && !resultsMap.has(id));
 
     if (extraCardIds.length) {
       const extraCards = await Card.find({ id: { $in: extraCardIds } }).lean();
@@ -437,10 +430,11 @@ app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
     }
 
     for (const lst of listingsByName) {
-      if (!resultsMap.has(lst.cardId)) {
-        resultsMap.set(lst.cardId, { card: null, listings: [] });
+      const key = lst.cardId || `listing-${lst._id}`;
+      if (!resultsMap.has(key)) {
+        resultsMap.set(key, { card: null, listings: [] });
       }
-      const entry = resultsMap.get(lst.cardId);
+      const entry = resultsMap.get(key);
       entry.listings.push({
         id: lst._id,
         price: lst.price,

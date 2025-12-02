@@ -27,7 +27,7 @@ const notificationSchema = new mongoose.Schema(
 const orderSchema = new mongoose.Schema(
   {
     listingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Listing', required: true },
-    cardId: { type: String, required: true },
+    cardId: { type: String },
     sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     type: { type: String, enum: ['compra', 'reserva'], default: 'compra' },
