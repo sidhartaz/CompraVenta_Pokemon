@@ -221,6 +221,32 @@ app.get('/api/listings', async (req, res) => {
   }
 });
 
+// Obtener la publicación destacada por búsquedas
+app.get('/api/listings/featured', async (req, res) => {
+  try {
+    const featured = await Listing.findOne({ status: 'aprobada', isActive: true })
+      .sort({ searchCount: -1, createdAt: -1 })
+      .populate('sellerId', 'name email role')
+      .lean();
+
+    if (!featured) {
+      return res.json({ listing: null });
+    }
+
+    const card = featured.cardId ? await Card.findOne({ id: featured.cardId }).lean() : null;
+
+    return res.json({
+      listing: {
+        ...featured,
+        card,
+      },
+    });
+  } catch (error) {
+    console.error('Error en GET /api/listings/featured:', error);
+    return res.status(500).json({ message: 'Error del servidor' });
+  }
+});
+
 // Obtener una publicación por ID
 app.get('/api/listings/:id', async (req, res) => {
   try {
@@ -416,6 +442,11 @@ app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
       .populate('sellerId', 'name email role')
       .lean();
 
+    const searchListingIds = new Set([
+      ...listingsForCards.map((lst) => lst._id.toString()),
+      ...listingsByName.map((lst) => lst._id.toString()),
+    ]);
+
     const extraCardIds = listingsByName
       .map((lst) => lst.cardId)
       .filter((id) => id && !resultsMap.has(id));
@@ -448,6 +479,17 @@ app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
     }
 
     const responseBody = { results: Array.from(resultsMap.values()) };
+
+    if (searchListingIds.size) {
+      try {
+        await Listing.updateMany(
+          { _id: { $in: Array.from(searchListingIds) } },
+          { $inc: { searchCount: 1 } }
+        );
+      } catch (err) {
+        console.error('No se pudo incrementar searchCount:', err.message);
+      }
+    }
 
     // Guardar en cache para próximas llamadas
     if (res.locals.cacheKey) {

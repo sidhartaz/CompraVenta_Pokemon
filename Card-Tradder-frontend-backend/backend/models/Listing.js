@@ -14,6 +14,7 @@ const listingSchema = new mongoose.Schema({
   condition: { type: String, required: true },
   description: { type: String },
   imageData: { type: String },
+  searchCount: { type: Number, default: 0 },
 
   // Estado de validación por parte de admin
   status: {

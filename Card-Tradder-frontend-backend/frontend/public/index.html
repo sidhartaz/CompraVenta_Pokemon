@@ -133,7 +133,7 @@
                 <a href="#" class="menu-item" onclick="showView('dashboard', this)">
                     <i class="fa-solid fa-box-open"></i> Mis Cartas
                 </a>
-                <a href="#" class="menu-item" onclick="toggleModal()">
+                <a href="#" class="menu-item seller-only" onclick="toggleModal()">
                     <i class="fa-solid fa-plus-circle"></i> Publicar Carta
                 </a>
                 <a href="#" class="menu-item"><i class="fa-solid fa-handshake"></i> Intercambios</a>
@@ -170,7 +170,7 @@
                 <h1 id="page-title">Bienvenido</h1>
                 <div class="header-actions">
                     <button class="btn-secondary"><i class="fa-regular fa-bell"></i></button>
-                    <button class="btn-primary" onclick="toggleModal()">
+                    <button class="btn-primary seller-only" onclick="toggleModal()">
                         <i class="fa-solid fa-plus"></i> Nueva Publicación
                     </button>
                 </div>
@@ -239,20 +239,8 @@
                     <div class="col-right">
                         <div class="card inventory-section">
                             <div class="card-header"><h3>Inventario Destacado</h3></div>
-                            <div class="card-body flex-row">
-                                <div class="card-image-container">
-                                    <img src="charizard.png" alt="Carta">
-                                </div>
-                                <div class="card-info">
-                                    <h4>Charizard Holográfico</h4>
-                                    <p class="subtext">Edición Base Set 1st Edition</p>
-                                    <div class="tags">
-                                        <span class="tag verification">Validado Nivel 3</span>
-                                    </div>
-                                    <div class="price-box">
-                                        <span class="currency">$150.000 CLP</span>
-                                    </div>
-                                </div>
+                            <div class="card-body flex-row" id="featured-listing">
+                                <p class="subtext">Cargando publicación destacada...</p>
                             </div>
                         </div>
 
@@ -559,6 +547,63 @@
             `;
         }
 
+        function renderFeaturedListing(listing) {
+            const card = listing.card || {};
+            const seller = listing.sellerId || listing.seller || {};
+            const cardName = listing.name || card.name || listing.cardId || 'Publicación';
+            const image = listing.imageData || card.images?.large || 'black.jpg';
+            const available = listing.status === 'aprobada' && listing.isActive !== false;
+            const availabilityLabel = available ? 'Disponible' : 'No disponible';
+
+            return `
+                <div class="featured-card">
+                    <div class="featured-image">
+                        <img src="${image}" alt="${cardName}" onerror="this.src='black.jpg'">
+                    </div>
+                    <div class="featured-info">
+                        <div class="featured-title-row">
+                            <h4>${cardName}</h4>
+                            <span class="availability-pill ${available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
+                        </div>
+                        <p class="subtext">Vendedor: ${seller.name || 'Vendedor'}${seller.email ? ' • ' + seller.email : ''}</p>
+                        <div class="tags featured-tags">
+                            <span class="tag verification">Búsquedas: ${listing.searchCount || 0}</span>
+                            <span class="tag">Condición: ${listing.condition}</span>
+                        </div>
+                        <div class="price-box">
+                            <span class="currency">$${listing.price}</span>
+                            <small>${card.set?.name || 'Set no disponible'}</small>
+                        </div>
+                        <div class="featured-actions">
+                            <button class="btn-secondary" onclick="showListingDetail('${listing.id || listing._id}','${listing.cardId || ''}')">Ver publicación</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadFeaturedListing() {
+            const container = document.getElementById('featured-listing');
+            if (!container) return;
+
+            container.innerHTML = '<p class="subtext">Buscando publicación destacada...</p>';
+
+            try {
+                const res = await fetch('/api/listings/featured');
+                const data = await res.json();
+
+                if (!data.listing) {
+                    container.innerHTML = '<p class="subtext">Aún no hay búsquedas registradas.</p>';
+                    return;
+                }
+
+                container.innerHTML = renderFeaturedListing(data.listing);
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<p class="subtext">Error cargando la publicación destacada.</p>';
+            }
+        }
+
         // Cambiar entre login / registro
         function toggleAuth(view) {
             document.getElementById('form-login').classList.toggle('hidden');
@@ -566,7 +611,18 @@
         }
 
         function toggleModal() {
-            document.getElementById('modalPublish').classList.toggle('active');
+            const modal = document.getElementById('modalPublish');
+            if (!modal) return;
+
+            const isOpen = modal.classList.contains('active');
+            const isSeller = currentUser && currentUser.role === 'vendedor';
+
+            if (!isOpen && !isSeller) {
+                alert('Solo los vendedores pueden crear publicaciones.');
+                return;
+            }
+
+            modal.classList.toggle('active');
         }
 
         // Mostrar vista principal (usada por el menú)
@@ -610,6 +666,11 @@
             if (viewName === 'publications') {
                 loadPublicationsBoard();
             }
+
+            if (viewName === 'dashboard') {
+                loadFeaturedListing();
+                loadSellerListings();
+            }
         }
 
         // Helper para cambiar de vista desde otras funciones (detalle de carta)
@@ -641,11 +702,17 @@
                 el.style.display = (user.role === 'admin') ? 'block' : 'none';
             });
 
+            const sellerItems = document.querySelectorAll('.seller-only');
+            sellerItems.forEach(el => {
+                el.style.display = (user.role === 'vendedor') ? '' : 'none';
+            });
+
             loadHomeListings();
             loadCatalogListings();
             loadPublicationsBoard();
             loadSellerListings();
             loadOrderHistory();
+            loadFeaturedListing();
         }
 
         async function loadHomeListings() {
@@ -716,9 +783,13 @@
         }
 
         async function loadSellerListings() {
-            if (!currentUser || currentUser.role !== 'vendedor') return;
             const container = document.getElementById('seller-listings');
             if (!container) return;
+
+            if (!currentUser || currentUser.role !== 'vendedor') {
+                container.innerHTML = '<p class="subtext">Solo los vendedores pueden gestionar publicaciones.</p>';
+                return;
+            }
 
             container.innerHTML = '<p>Cargando tus publicaciones...</p>';
 
@@ -1018,7 +1089,8 @@
 
         async function handleCreateListing(e) {
             e.preventDefault();
-            if (!authToken) return alert('Debes iniciar sesión como vendedor.');
+            if (!authToken || !currentUser) return alert('Debes iniciar sesión como vendedor.');
+            if (currentUser.role !== 'vendedor') return alert('Solo los vendedores pueden crear publicaciones.');
 
             const name = document.getElementById('listing-name').value.trim();
             const cardId = document.getElementById('listing-card-id').value.trim();
