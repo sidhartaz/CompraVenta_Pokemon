@@ -8,6 +8,7 @@ const listingSchema = new mongoose.Schema({
   sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 
   // Datos de la publicación
+  name: { type: String, required: true, trim: true },
   price: { type: Number, required: true },
   condition: { type: String, required: true },
   description: { type: String },

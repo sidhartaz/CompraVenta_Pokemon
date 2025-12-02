@@ -215,10 +215,10 @@ app.get('/api/listings/:id', async (req, res) => {
 // Crear una publicación (solo vendedores)
 app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res) => {
   try {
-    const { cardId, price, condition, description, imageData } = req.body;
+    const { cardId, price, condition, description, imageData, name } = req.body;
 
-    if (!cardId || !price || !condition) {
-      return res.status(400).json({ message: 'Faltan datos: cardId, price, condition' });
+    if (!cardId || !price || !condition || !name) {
+      return res.status(400).json({ message: 'Faltan datos: cardId, name, price, condition' });
     }
 
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -233,6 +233,7 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
 
     const newListing = new Listing({
       cardId,
+      name,
       price,
       condition,
       description,
@@ -256,7 +257,7 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
 // Actualizar una publicación (solo vendedores dueños de la publicación)
 app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, res) => {
   try {
-    const { price, condition, description, imageData } = req.body;
+    const { price, condition, description, imageData, name } = req.body;
 
     const listing = await Listing.findById(req.params.id);
     if (!listing) {
@@ -271,6 +272,7 @@ app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, 
     if (condition !== undefined) listing.condition = condition;
     if (description !== undefined) listing.description = description;
     if (imageData !== undefined) listing.imageData = imageData;
+    if (name !== undefined) listing.name = name;
 
     await listing.save();
 
@@ -343,39 +345,72 @@ app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
       return res.json({ results: [] });
     }
 
-    // Buscar cartas cuyo nombre contenga el texto (insensible a mayúsculas)
-    const cards = await Card.find({
-      name: { $regex: query, $options: 'i' },
+    const regex = { $regex: query, $options: 'i' };
+
+    const cards = await Card.find({ name: regex }).limit(20).lean();
+    const cardIds = cards.map((card) => card.id);
+
+    const listingsForCards = await Listing.find({
+      status: 'aprobada',
+      cardId: { $in: cardIds },
     })
-      .limit(20)
+      .populate('sellerId', 'name email role')
       .lean();
 
-    if (!cards.length) {
-      return res.json({ results: [] });
-    }
-
-    const results = [];
+    const resultsMap = new Map();
 
     for (const card of cards) {
-      const listings = await Listing.find({ cardId: card.id, status: 'aprobada' })
-        .populate('sellerId', 'name email role')
-        .lean();
+      resultsMap.set(card.id, { card, listings: [] });
+    }
 
-      const formattedListings = listings.map((lst) => ({
+    for (const lst of listingsForCards) {
+      const entry = resultsMap.get(lst.cardId);
+      if (!entry) continue;
+      entry.listings.push({
         id: lst._id,
         price: lst.price,
         condition: lst.condition,
         seller: lst.sellerId,
         imageData: lst.imageData,
-      }));
-
-      results.push({
-        card,
-        listings: formattedListings,
+        name: lst.name,
+        cardId: lst.cardId,
       });
     }
 
-    const responseBody = { results };
+    const listingsByName = await Listing.find({ status: 'aprobada', name: regex })
+      .populate('sellerId', 'name email role')
+      .lean();
+
+    const extraCardIds = listingsByName
+      .map((lst) => lst.cardId)
+      .filter((id) => !resultsMap.has(id));
+
+    if (extraCardIds.length) {
+      const extraCards = await Card.find({ id: { $in: extraCardIds } }).lean();
+      for (const card of extraCards) {
+        if (!resultsMap.has(card.id)) {
+          resultsMap.set(card.id, { card, listings: [] });
+        }
+      }
+    }
+
+    for (const lst of listingsByName) {
+      if (!resultsMap.has(lst.cardId)) {
+        resultsMap.set(lst.cardId, { card: null, listings: [] });
+      }
+      const entry = resultsMap.get(lst.cardId);
+      entry.listings.push({
+        id: lst._id,
+        price: lst.price,
+        condition: lst.condition,
+        seller: lst.sellerId,
+        imageData: lst.imageData,
+        name: lst.name,
+        cardId: lst.cardId,
+      });
+    }
+
+    const responseBody = { results: Array.from(resultsMap.values()) };
 
     // Guardar en cache para próximas llamadas
     if (res.locals.cacheKey) {
