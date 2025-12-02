@@ -20,14 +20,13 @@ router.get('/users', authRequired, requireRole('admin'), async (req, res) => {
 // Editar datos básicos de un usuario (nombre, rol, isActive)
 router.patch('/users/:id', authRequired, requireRole('admin'), async (req, res) => {
   try {
-    const { name, role, isActive, subscriptionActive } = req.body;
+    const { name, role, isActive } = req.body;
     const validRoles = ['cliente', 'vendedor', 'admin'];
 
     const update = {};
     if (name) update.name = name;
     if (role && validRoles.includes(role)) update.role = role;
     if (typeof isActive === 'boolean') update.isActive = isActive;
-    if (typeof subscriptionActive === 'boolean') update.subscriptionActive = subscriptionActive;
 
     const user = await User.findByIdAndUpdate(
       req.params.id,

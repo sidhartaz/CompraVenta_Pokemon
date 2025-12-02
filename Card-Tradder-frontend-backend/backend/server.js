@@ -18,8 +18,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- 1. MIDDLEWARES ---
-app.use(express.json());                          // Para JSON (Postman, fetch, etc.)
-app.use(express.urlencoded({ extended: true }));  // Por si envías formularios
+app.use(express.json({ limit: '5mb' }));                          // Para JSON (Postman, fetch, etc.)
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));  // Por si envías formularios
 app.use(express.static(path.join(__dirname, '..', 'frontend', 'public')));
 
 // --- 2. IMPORTAR MODELOS ---
@@ -167,15 +167,14 @@ app.get('/api/listings', async (req, res) => {
     }
 
     const listings = await Listing.find(filter)
-      .populate('sellerId', 'name email role subscriptionActive')
+      .populate('sellerId', 'name email role')
       .lean();
 
-    const visibleListings = listings.filter((lst) => lst.sellerId?.subscriptionActive !== false);
-    const cardIds = [...new Set(visibleListings.map((lst) => lst.cardId))];
+    const cardIds = [...new Set(listings.map((lst) => lst.cardId))];
     const cards = await Card.find({ id: { $in: cardIds } }).lean();
     const cardMap = new Map(cards.map((card) => [card.id, card]));
 
-    const enriched = visibleListings.map((lst) => ({
+    const enriched = listings.map((lst) => ({
       ...lst,
       card: cardMap.get(lst.cardId) || null,
     }));
@@ -191,7 +190,7 @@ app.get('/api/listings', async (req, res) => {
 app.get('/api/listings/:id', async (req, res) => {
   try {
     const listing = await Listing.findById(req.params.id)
-      .populate('sellerId', 'name email role subscriptionActive')
+      .populate('sellerId', 'name email role')
       .lean();
 
     if (!listing) {
@@ -200,10 +199,6 @@ app.get('/api/listings/:id', async (req, res) => {
 
     if (listing.status !== 'aprobada') {
       return res.status(403).json({ message: 'La publicación aún no está aprobada.' });
-    }
-
-    if (listing.sellerId?.subscriptionActive === false) {
-      return res.status(403).json({ message: 'El vendedor no tiene una suscripción activa.' });
     }
 
     return res.json(listing);
@@ -216,15 +211,10 @@ app.get('/api/listings/:id', async (req, res) => {
 // Crear una publicación (solo vendedores)
 app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res) => {
   try {
-    const { cardId, price, condition } = req.body;
+    const { cardId, price, condition, description, imageData } = req.body;
 
     if (!cardId || !price || !condition) {
       return res.status(400).json({ message: 'Faltan datos: cardId, price, condition' });
-    }
-
-    const seller = await User.findById(req.user.id);
-    if (!seller?.subscriptionActive) {
-      return res.status(403).json({ message: 'Necesitas una suscripción activa para publicar y aparecer en el catálogo.' });
     }
 
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -241,6 +231,8 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
       cardId,
       price,
       condition,
+      description,
+      imageData,
       sellerId: req.user.id, // del token JWT
       status: 'pendiente',
     });
@@ -260,7 +252,7 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
 // Actualizar una publicación (solo vendedores dueños de la publicación)
 app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, res) => {
   try {
-    const { price, condition } = req.body;
+    const { price, condition, description, imageData } = req.body;
 
     const listing = await Listing.findById(req.params.id);
     if (!listing) {
@@ -273,6 +265,8 @@ app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, 
 
     if (price !== undefined) listing.price = price;
     if (condition !== undefined) listing.condition = condition;
+    if (description !== undefined) listing.description = description;
+    if (imageData !== undefined) listing.imageData = imageData;
 
     await listing.save();
 
@@ -360,16 +354,15 @@ app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
 
     for (const card of cards) {
       const listings = await Listing.find({ cardId: card.id, status: 'aprobada' })
-        .populate('sellerId', 'name email role subscriptionActive')
+        .populate('sellerId', 'name email role')
         .lean();
 
-      const activeListings = listings.filter((lst) => lst.sellerId?.subscriptionActive !== false);
-
-      const formattedListings = activeListings.map((lst) => ({
+      const formattedListings = listings.map((lst) => ({
         id: lst._id,
         price: lst.price,
         condition: lst.condition,
         seller: lst.sellerId,
+        imageData: lst.imageData,
       }));
 
       results.push({
@@ -432,16 +425,15 @@ app.get('/api/cards/:id', async (req, res) => {
     }
 
     const listings = await Listing.find({ cardId, status: 'aprobada' })
-      .populate('sellerId', 'name email role subscriptionActive')
+      .populate('sellerId', 'name email role')
       .lean();
 
-    const activeListings = listings.filter((lst) => lst.sellerId?.subscriptionActive !== false);
-
-    const formattedListings = activeListings.map((lst) => ({
+    const formattedListings = listings.map((lst) => ({
       id: lst._id,
       price: lst.price,
       condition: lst.condition,
       seller: lst.sellerId,
+      imageData: lst.imageData,
     }));
 
     return res.json({

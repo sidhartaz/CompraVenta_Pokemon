@@ -9,7 +9,6 @@ const userSchema = new mongoose.Schema({
     enum: ['cliente', 'vendedor', 'admin'],
     default: 'cliente'
   },
-  subscriptionActive: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true }, // 👈 para “eliminar” lógicamente si quieres
   createdAt: { type: Date, default: Date.now }
 });

@@ -11,6 +11,7 @@ const listingSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   condition: { type: String, required: true },
   description: { type: String },
+  imageData: { type: String },
 
   // Estado de validación por parte de admin
   status: {

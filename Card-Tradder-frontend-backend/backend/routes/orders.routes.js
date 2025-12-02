@@ -45,11 +45,6 @@ router.post('/', authRequired, async (req, res) => {
       return res.status(400).json({ message: 'La publicación debe estar aprobada para generar una orden' });
     }
 
-    const seller = await User.findById(listing.sellerId).select('subscriptionActive').lean();
-    if (!seller?.subscriptionActive) {
-      return res.status(400).json({ message: 'El vendedor no tiene una suscripción activa; no se pueden crear órdenes.' });
-    }
-
     const weekAgo = new Date(Date.now() - 7 * DAY_IN_MS);
     const weeklyOrders = await Order.countDocuments({
       buyerId: req.user.id,

@@ -31,19 +31,14 @@ Este documento resume un flujo mínimo para validar la API con herramientas como
   - Esperado: `200 OK` con datos del usuario autenticado.
 
 ## 2) Publicación y aprobación de cartas
-- **Activar suscripción del vendedor (admin)** (`PATCH {{baseUrl}}/api/admin/users/:id`)
-  ```json
-  { "subscriptionActive": true }
-  ```
-  - Header: `Authorization: Bearer {{adminToken}}`.
-  - Esperado: `200 OK` y el vendedor puede publicar/recibir órdenes.
 - **Crear listing (vendedor)** (`POST {{baseUrl}}/api/listings` con token de vendedor)
   ```json
   {
     "cardId": "abc123",
     "condition": "Near Mint",
     "price": 25,
-    "description": "Charizard holo primera edición"
+    "description": "Charizard holo primera edición",
+    "imageData": "data:image/png;base64,iVBORw0K..."
   }
   ```
   - Esperado: `201 Created` con `status: "pendiente"` y `sellerId` del vendedor.
@@ -83,11 +78,9 @@ Este documento resume un flujo mínimo para validar la API con herramientas como
   - Solo vendedor/admin pueden marcar `pagada`/`reservada`/`pendiente`; el comprador puede marcar `cancelada`.
   - Esperado: `200 OK` y nueva entrada en `history`.
 
-## 5) Límite semanal y suspensión
+## 5) Límite semanal
 - **Límite de publicaciones (vendedor)**: crea 2 listings en la misma semana y verifica que el tercer `POST {{baseUrl}}/api/listings` responda `400` con mensaje de límite alcanzado.
 - **Límite de órdenes (comprador)**: crea 2 órdenes/reservas y constata que el tercer `POST {{baseUrl}}/api/orders` devuelve `400`.
-- **Suspensión de vendedor**: si `subscriptionActive` vuelve a `false`, `GET {{baseUrl}}/api/cards/search` deja de mostrar sus publicaciones aprobadas y las órdenes a sus cartas deben rechazar la creación (`400`).
-
 ## 6) Validaciones adicionales
 - Registrar usuario con rol inválido → `400 Bad Request`.
 - Acceder a rutas admin con rol vendedor/cliente → `403 Forbidden`.

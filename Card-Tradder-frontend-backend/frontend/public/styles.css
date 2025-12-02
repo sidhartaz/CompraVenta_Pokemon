@@ -98,6 +98,14 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
     text-transform: uppercase;
 }
 
+.seller-thumb img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid #3d3d3d;
+}
+
 .seller-name {
     font-weight: bold;
 }
