@@ -310,6 +310,16 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
 .status-pill { font-size: 0.75rem; padding: 5px 12px; border-radius: 20px; font-weight: 600; }
 .status-pill.delivered { background: #e0e7ff; color: #3730a3; }
 .status-pill.pending { background: #fef3c7; color: #92400e; }
+.seller-publication { display: flex; gap: 12px; align-items: center; padding: 12px; border: 1px solid #e5e7eb; border-radius: 12px; margin-bottom: 12px; background: #fff; box-shadow: 0 6px 14px -8px rgba(0,0,0,0.12); }
+.seller-thumb { width: 60px; height: 60px; border-radius: 10px; overflow: hidden; background: #f3f4f6; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.seller-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.seller-pub-info { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.seller-pub-title { font-weight: 700; color: var(--text-dark); }
+.seller-pub-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seller-pub-price { font-weight: 700; color: var(--primary-color); }
+.seller-pub-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.btn-secondary.danger { border-color: #fecdd3; color: #b91c1c; background: #fff1f2; }
+.btn-secondary.danger:hover { background: #ffe4e6; }
 
 /* --- VISTA: CATÁLOGO Y GRID DE CARTAS --- */
 .catalog-layout { display: flex; gap: 30px; height: 100%; }

@@ -257,7 +257,7 @@
                         </div>
 
                         <div class="card publications-list">
-                            <div class="card-header"><h3>Publicaciones Activas</h3></div>
+                            <div class="card-header"><h3>Gestión de mis cartas</h3></div>
                             <div class="card-body" id="seller-listings"></div>
                         </div>
                     </div>
@@ -737,18 +737,66 @@
                     return;
                 }
 
-                container.innerHTML = mine.map(lst => `
-                    <div class="list-item">
-                        <div class="item-info">
-                            <strong>${lst.card?.name || lst.cardId}</strong>
-                            <span>Estado: ${lst.condition}</span>
-                        </div>
-                        <span class="status-pill ${lst.status === 'aprobada' ? 'delivered' : 'pending'}">${lst.status}</span>
-                    </div>
-                `).join('');
+                container.innerHTML = mine.map(renderSellerListing).join('');
             } catch (err) {
                 console.error(err);
                 container.innerHTML = '<p>Error cargando tus publicaciones.</p>';
+            }
+        }
+
+        function renderSellerListing(listing) {
+            const card = listing.card || {};
+            const image = listing.imageData || card.images?.small || 'black.jpg';
+            const cardName = listing.name || card.name || listing.cardId;
+            const statusClass = listing.status === 'aprobada' ? 'delivered' : 'pending';
+            const availability = listing.status === 'aprobada' && listing.isActive !== false ? 'Disponible' : 'No disponible';
+            const listingId = listing.id || listing._id;
+
+            return `
+                <div class="seller-publication">
+                    <div class="seller-thumb">
+                        <img src="${image}" alt="${cardName}" onerror="this.src='black.jpg'">
+                    </div>
+                    <div class="seller-pub-info">
+                        <div class="seller-pub-title">${cardName}</div>
+                        <div class="seller-pub-meta">
+                            <span class="condition-badge">${listing.condition}</span>
+                            <span class="status-pill ${statusClass}">${listing.status}</span>
+                            <span class="availability-pill ${availability === 'Disponible' ? 'available' : 'unavailable'}">${availability}</span>
+                        </div>
+                        <div class="seller-pub-price">$${listing.price}</div>
+                    </div>
+                    <div class="seller-pub-actions">
+                        <button class="btn-secondary danger" onclick="deleteListing('${listingId}')">Eliminar</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function deleteListing(listingId) {
+            if (!authToken || !currentUser || currentUser.role !== 'vendedor') {
+                return alert('Solo vendedores pueden eliminar publicaciones');
+            }
+
+            const confirmDelete = confirm('¿Eliminar esta publicación? Esta acción no se puede deshacer.');
+            if (!confirmDelete) return;
+
+            try {
+                const res = await apiFetch(`/api/listings/${listingId}`, { method: 'DELETE' });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    return alert(data.message || 'No se pudo eliminar la publicación');
+                }
+
+                alert('Publicación eliminada con éxito');
+                loadSellerListings();
+                loadPublicationsBoard();
+                loadCatalogListings();
+                loadHomeListings();
+            } catch (error) {
+                console.error(error);
+                alert('Error al eliminar la publicación');
             }
         }
 
