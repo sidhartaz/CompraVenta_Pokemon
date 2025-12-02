@@ -1,8 +1,9 @@
 // scripts/create_fake_listings.js
 const mongoose = require('mongoose');
 const { faker } = require('@faker-js/faker');  // ← CORRECTO
+const bcrypt = require('bcryptjs');
 const Card = require('../models/Card');
-const Seller = require('../models/Seller');
+const User = require('../models/User');
 const Listing = require('../models/Listing');
 
 const MONGO = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/cardtrader';
@@ -11,17 +12,19 @@ async function main() {
   await mongoose.connect(MONGO);
   console.log('Conectado a MongoDB');
 
-  // Crear vendedores falsos
+  // Crear vendedores falsos como usuarios del sistema
   const sellers = [];
-  for (let i = 0; i < 50; i++) {
+  const password = await bcrypt.hash('password123', 10);
+  for (let i = 0; i < 20; i++) {
     sellers.push({
       name: faker.person.fullName(),
-      avatar: faker.image.avatar(),  // genera una imagen de perfil aleatoria
-      rating: (Math.random() * 2 + 3).toFixed(2)
+      email: faker.internet.email(),
+      password,
+      role: 'vendedor',
     });
   }
 
-  const createdSellers = await Seller.insertMany(sellers);
+  const createdSellers = await User.insertMany(sellers);
   console.log('Vendedores creados:', createdSellers.length);
 
   // Obtener cartas
@@ -38,14 +41,15 @@ async function main() {
       listings.push({
         cardId: card.id,
         sellerId: seller._id,
-        price: faker.commerce.price({ min: 1000, max: 200000 }),
+        price: Number(faker.commerce.price({ min: 1000, max: 200000 })),
         condition: faker.helpers.arrayElement([
           'Near Mint',
           'Light Played',
           'Moderately Played',
           'Heavily Played',
         ]),
-        images: [card.images?.large || '']
+        description: faker.commerce.productDescription(),
+        status: 'aprobada',
       });
     }
   }

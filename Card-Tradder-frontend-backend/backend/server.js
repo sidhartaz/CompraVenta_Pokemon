@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
 const adminRoutes = require('./routes/admin.routes');
+const orderRoutes = require('./routes/orders.routes');
 
 const { authRequired, requireRole } = require('./middlewares/auth');
 const { client: redisClient, connectRedis } = require('./redisClient');
@@ -25,7 +26,6 @@ app.use(express.static(path.join(__dirname, '..', 'frontend', 'public')));
 const User = require('./models/User');
 const Card = require('./models/Card');
 const Listing = require('./models/Listing');
-const Seller = require('./models/Seller');
 
 // --- 3. CONEXIÓN A BASE DE DATOS ---
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/cardtrader';
@@ -65,7 +65,7 @@ app.post('/api/register', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const validRoles = ['cliente', 'vendedor'];
+    const validRoles = ['cliente', 'vendedor', 'admin'];
     const finalRole = validRoles.includes(role) ? role : 'cliente';
 
     const newUser = new User({
@@ -149,10 +149,10 @@ app.get('/api/me', authRequired, (req, res) => {
   });
 });
 
-// Solo vendedores (rol "vendedor") pueden acceder
-app.get('/api/admin/ventas', authRequired, requireRole('vendedor'), (req, res) => {
+// Solo administradores (rol "admin") pueden acceder
+app.get('/api/admin/ventas', authRequired, requireRole('admin'), (req, res) => {
   res.json({
-    message: 'Solo vendedores pueden ver esta información',
+    message: 'Solo administradores pueden ver esta información',
   });
 });
 
@@ -161,8 +161,13 @@ app.get('/api/admin/ventas', authRequired, requireRole('vendedor'), (req, res) =
 // Obtener todas las publicaciones
 app.get('/api/listings', async (req, res) => {
   try {
-    const listings = await Listing.find()
-      .populate('sellerId')
+    const filter = {};
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+
+    const listings = await Listing.find(filter)
+      .populate('sellerId', 'name email role')
       .lean();
 
     return res.json(listings);
@@ -176,7 +181,7 @@ app.get('/api/listings', async (req, res) => {
 app.get('/api/listings/:id', async (req, res) => {
   try {
     const listing = await Listing.findById(req.params.id)
-      .populate('sellerId')
+      .populate('sellerId', 'name email role')
       .lean();
 
     if (!listing) {
@@ -204,6 +209,7 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
       price,
       condition,
       sellerId: req.user.id, // del token JWT
+      status: 'pendiente',
     });
 
     await newListing.save();
@@ -218,7 +224,7 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
   }
 });
 
-// Actualizar una publicación (solo vendedores)
+// Actualizar una publicación (solo vendedores dueños de la publicación)
 app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, res) => {
   try {
     const { price, condition } = req.body;
@@ -226,6 +232,10 @@ app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, 
     const listing = await Listing.findById(req.params.id);
     if (!listing) {
       return res.status(404).json({ message: 'Listing no encontrado' });
+    }
+
+    if (listing.sellerId.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'No puedes editar publicaciones de otros vendedores' });
     }
 
     if (price !== undefined) listing.price = price;
@@ -243,12 +253,16 @@ app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, 
   }
 });
 
-// Eliminar una publicación (solo vendedores)
+// Eliminar una publicación (solo vendedores dueños de la publicación)
 app.delete('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, res) => {
   try {
     const listing = await Listing.findById(req.params.id);
     if (!listing) {
       return res.status(404).json({ message: 'Listing no encontrado' });
+    }
+
+    if (listing.sellerId.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'No puedes eliminar publicaciones de otros vendedores' });
     }
 
     await listing.deleteOne();
@@ -312,8 +326,8 @@ app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
     const results = [];
 
     for (const card of cards) {
-      const listings = await Listing.find({ cardId: card.id })
-        .populate('sellerId')
+      const listings = await Listing.find({ cardId: card.id, status: 'aprobada' })
+        .populate('sellerId', 'name email role')
         .lean();
 
       const formattedListings = listings.map((lst) => ({
@@ -381,8 +395,8 @@ app.get('/api/cards/:id', async (req, res) => {
       return res.json({ card: null, listings: [] });
     }
 
-    const listings = await Listing.find({ cardId })
-      .populate('sellerId')
+    const listings = await Listing.find({ cardId, status: 'aprobada' })
+      .populate('sellerId', 'name email role')
       .lean();
 
     const formattedListings = listings.map((lst) => ({
@@ -401,6 +415,7 @@ app.get('/api/cards/:id', async (req, res) => {
   }
 });
 app.use('/api/admin', adminRoutes);
+app.use('/api/orders', orderRoutes);
 // --- 9. RUTA FALLBACK (para que cualquier ruta del frontend cargue index.html) ---
 app.get(/(.*)/, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'public', 'index.html'));
