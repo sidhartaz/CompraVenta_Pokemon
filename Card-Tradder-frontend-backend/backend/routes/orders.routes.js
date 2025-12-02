@@ -68,8 +68,8 @@ router.post('/', authRequired, async (req, res) => {
       createdAt: { $gte: weekAgo },
     });
 
-    if (weeklyOrders >= 2) {
-      return res.status(400).json({ message: 'Solo puedes crear 2 compras o reservas por semana.' });
+    if (weeklyOrders >= 7) {
+      return res.status(400).json({ message: 'Solo puedes crear 7 compras o reservas por semana.' });
     }
 
     const normalizedType = type === 'reserva' ? 'reserva' : 'compra';

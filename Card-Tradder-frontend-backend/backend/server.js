@@ -179,11 +179,27 @@ app.post('/api/login', async (req, res) => {
 // --- 5. ENDPOINTS PROTEGIDOS DE EJEMPLO (para probar JWT + ROLES) ---
 
 // Cualquier usuario autenticado (cliente o vendedor)
-app.get('/api/me', authRequired, (req, res) => {
-  res.json({
-    message: 'Usuario autenticado',
-    user: req.user, // { id, role, iat, exp }
-  });
+app.get('/api/me', authRequired, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('name email role');
+
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    return res.json({
+      message: 'Usuario autenticado',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error('Error en GET /api/me:', err);
+    return res.status(500).json({ message: 'Error al recuperar el usuario' });
+  }
 });
 
 // Solo administradores (rol "admin") pueden acceder

@@ -1815,17 +1815,30 @@
             showSection('view-catalog');
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const savedToken = localStorage.getItem('authToken');
-            const savedUser = localStorage.getItem('currentUser');
 
-            if (savedToken && savedUser) {
+            if (savedToken) {
                 try {
-                    const parsedUser = JSON.parse(savedUser);
+                    const res = await fetch('/api/me', {
+                        headers: {
+                            'Authorization': 'Bearer ' + savedToken,
+                        },
+                    });
+
+                    if (!res.ok) {
+                        throw new Error('No se pudo restaurar la sesión');
+                    }
+
+                    const data = await res.json();
+                    if (!data?.user) throw new Error('Usuario inválido en sesión');
+
                     authToken = savedToken;
-                    currentUser = parsedUser;
-                    enterApp(parsedUser);
+                    currentUser = data.user;
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    enterApp(data.user);
                 } catch (err) {
+                    console.warn('No se pudo restaurar la sesión desde token', err);
                     localStorage.removeItem('authToken');
                     localStorage.removeItem('currentUser');
                 }
