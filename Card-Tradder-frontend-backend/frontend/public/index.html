@@ -1247,13 +1247,22 @@
                         </div>
 
                         <div class="detail-right">
-                            <h2>${displayName}</h2>
-                            <p><strong>Set:</strong> ${card?.set?.name || 'No disponible'}</p>
-                            <p><strong>Rareza:</strong> ${card?.rarity || 'Desconocida'}</p>
-                            <p><strong>Condición:</strong> ${listing.condition}</p>
-                            <p><strong>Precio:</strong> $${listing.price}</p>
-                            <p><strong>Descripción:</strong> ${listing.description || 'Sin descripción proporcionada.'}</p>
-                            <p><strong>Disponibilidad:</strong> <span class="availability-pill ${available ? 'available' : 'unavailable'}">${availabilityLabel}</span></p>
+                            <div class="detail-title-row">
+                                <h2>${displayName}</h2>
+                                <span class="availability-pill ${available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
+                            </div>
+
+                            <div class="detail-meta">
+                                <p><strong>Set:</strong> ${card?.set?.name || 'No disponible'}</p>
+                                <p><strong>Rareza:</strong> ${card?.rarity || 'Desconocida'}</p>
+                                <p><strong>Condición:</strong> ${listing.condition}</p>
+                                <p><strong>Precio:</strong> $${listing.price}</p>
+                            </div>
+
+                            <div class="detail-description">
+                                <p><strong>Descripción</strong></p>
+                                <p>${listing.description || 'Sin descripción proporcionada.'}</p>
+                            </div>
 
                             <div class="seller-list">
                                 <div class="seller-card">
@@ -1266,16 +1275,15 @@
                                     <div class="seller-price">
                                         $${listing.price}
                                         <span class="seller-condition">(${listing.condition})</span>
-                                        <span class="availability-pill ${available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
                                     </div>
                                     ${available
                                         ? `<div class="seller-actions">
-                                            <button class="btn-primary" onclick="createOrder('${listing._id || listing.id}','compra')">Comprar</button>
                                             <button class="btn-secondary" onclick="createOrder('${listing._id || listing.id}','reserva')">Reservar</button>
                                             <a class="btn-primary" href="mailto:${seller.email || ''}?subject=Interés%20en%20${encodeURIComponent(card?.name || listing.cardId)}" target="_blank" rel="noopener noreferrer">Contactar</a>
                                         </div>`
                                         : `<div class="seller-actions disabled">
-                                            <span class="availability-note">No disponible para compra, reserva ni contacto.</span>
+                                            <span class="availability-note">No disponible para reservar.</span>
+                                            <a class="btn-secondary ghost" href="mailto:${seller.email || ''}?subject=Consulta%20sobre%20${encodeURIComponent(card?.name || listing.cardId)}" target="_blank" rel="noopener noreferrer">Contactar</a>
                                         </div>`
                                     }
                                 </div>
