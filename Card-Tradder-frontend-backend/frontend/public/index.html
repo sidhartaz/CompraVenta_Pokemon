@@ -118,19 +118,19 @@
             </div>
 
             <nav class="menu">
-                <a href="#" class="menu-item active" onclick="showView('home', this)">
+                <a href="#" class="menu-item active" data-view="home" onclick="showView('home', this)">
                     <i class="fa-solid fa-house"></i> Inicio
                 </a>
-                <a href="#" class="menu-item" onclick="showView('catalog', this)">
+                <a href="#" class="menu-item" data-view="catalog" onclick="showView('catalog', this)">
                     <i class="fa-solid fa-magnifying-glass"></i> Buscar Cartas
                 </a>
-                <a href="#" class="menu-item" onclick="showView('publications', this)">
+                <a href="#" class="menu-item" data-view="publications" onclick="showView('publications', this)">
                     <i class="fa-solid fa-list"></i> Publicaciones
                 </a>
                 
                 <div class="menu-separator">GESTIÓN</div>
                 
-                <a href="#" class="menu-item" onclick="showView('dashboard', this)">
+                <a href="#" class="menu-item" data-view="dashboard" onclick="showView('dashboard', this)">
                     <i class="fa-solid fa-box-open"></i> Mis Cartas
                 </a>
                 <a href="#" class="menu-item seller-only" onclick="toggleModal()">
@@ -142,7 +142,7 @@
                 <div class="menu-separator">CUENTA</div>
 
                 <div class="menu-separator admin-only">ADMINISTRACIÓN</div>
-                <a href="#" class="menu-item admin-only" onclick="showView('admin', this)">
+                <a href="#" class="menu-item admin-only" data-view="admin" onclick="showView('admin', this)">
                     <i class="fa-solid fa-shield-halved"></i> Panel Admin
                 </a>
 
@@ -781,6 +781,25 @@
             if (target) target.classList.remove('hidden');
         }
 
+        function getMenuItemForView(viewName) {
+            return document.querySelector(`.menu-item[data-view="${viewName}"]`);
+        }
+
+        function setLandingViewForRole(user) {
+            let landingView = 'home';
+
+            if (user.role === 'vendedor') {
+                landingView = 'dashboard';
+            }
+
+            if (user.role === 'admin') {
+                landingView = 'admin';
+            }
+
+            const targetItem = getMenuItemForView(landingView);
+            showView(landingView, targetItem);
+        }
+
         // Al entrar después de login
         function enterApp(user) {
             currentUser = user;
@@ -810,6 +829,8 @@
             loadSellerListings();
             loadOrderHistory();
             loadFeaturedListing();
+
+            setLandingViewForRole(user);
         }
 
         async function loadHomeListings() {
