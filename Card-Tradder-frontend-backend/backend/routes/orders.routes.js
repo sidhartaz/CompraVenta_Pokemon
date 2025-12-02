@@ -2,6 +2,7 @@ const express = require('express');
 const { authRequired } = require('../middlewares/auth');
 const Listing = require('../models/Listing');
 const Order = require('../models/Order');
+const Card = require('../models/Card');
 const User = require('../models/User');
 
 const router = express.Router();
@@ -25,6 +26,26 @@ async function expireOldReservations() {
     });
     await order.save();
   }
+}
+
+async function attachCardData(orders) {
+  const cardIds = [
+    ...new Set(
+      orders
+        .map((order) => order.cardId)
+        .filter(Boolean)
+    ),
+  ];
+
+  if (!cardIds.length) return orders;
+
+  const cards = await Card.find({ id: { $in: cardIds } }).lean();
+  const cardMap = new Map(cards.map((card) => [card.id, card]));
+
+  return orders.map((order) => ({
+    ...order,
+    card: cardMap.get(order.cardId) || null,
+  }));
 }
 
 // Crear una orden o reserva
@@ -110,10 +131,13 @@ router.get('/', authRequired, async (req, res) => {
       .populate('buyerId', 'name email role')
       .populate('sellerId', 'name email role')
       .populate('listingId')
+      .populate('history.changedBy', 'name email role')
       .sort({ createdAt: -1 })
       .lean();
 
-    return res.json({ orders });
+    const enrichedOrders = await attachCardData(orders);
+
+    return res.json({ orders: enrichedOrders });
   } catch (err) {
     console.error('Error en GET /api/orders:', err);
     return res.status(500).json({ message: 'Error al listar órdenes' });
@@ -129,6 +153,7 @@ router.get('/:id', authRequired, async (req, res) => {
       .populate('buyerId', 'name email role')
       .populate('sellerId', 'name email role')
       .populate('listingId')
+      .populate('history.changedBy', 'name email role')
       .lean();
 
     if (!order) return res.status(404).json({ message: 'Orden no encontrada' });
@@ -141,7 +166,9 @@ router.get('/:id', authRequired, async (req, res) => {
       return res.status(403).json({ message: 'No tienes permiso para ver esta orden' });
     }
 
-    return res.json({ order });
+    const [orderWithCard] = await attachCardData([order]);
+
+    return res.json({ order: orderWithCard });
   } catch (err) {
     console.error('Error en GET /api/orders/:id:', err);
     return res.status(500).json({ message: 'Error al obtener la orden' });

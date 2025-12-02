@@ -272,6 +272,30 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
 .modal-footer { padding: 15px 25px; background-color: #f9fafb; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 10px; }
 .btn-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-gray); }
 
+/* --- HISTORIAL --- */
+.history-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.history-filters { min-width: 220px; }
+.history-card { border: 1px solid #e5e7eb; border-radius: var(--border-radius); padding: 16px; margin-bottom: 16px; background: #fff; }
+.history-card-header { display: flex; gap: 16px; align-items: center; }
+.history-image-wrapper { width: 96px; height: 96px; border-radius: 12px; overflow: hidden; background: #f3f4f6; display: flex; align-items: center; justify-content: center; }
+.history-image-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+.history-card-info { flex: 1; }
+.history-card-title { font-weight: 700; font-size: 1.05rem; color: var(--text-dark); }
+.history-card-meta { display: flex; align-items: center; gap: 8px; color: var(--text-gray); margin: 6px 0; flex-wrap: wrap; }
+.history-total { font-weight: 700; color: var(--primary-color); }
+.history-counterpart, .history-dates { color: var(--text-gray); font-size: 0.9rem; margin: 2px 0; }
+.history-steps { margin-top: 12px; border-top: 1px solid #f3f4f6; padding-top: 12px; display: grid; gap: 10px; }
+.history-step { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; }
+.history-step-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
+.history-step-date { color: var(--text-gray); }
+.history-step-body { margin-top: 6px; }
+.history-note { margin: 0; font-weight: 600; }
+.history-user { margin: 2px 0 0; color: var(--text-gray); font-size: 0.9rem; }
+.status-pill.status-success { background: #dcfce7; color: #166534; }
+.status-pill.status-danger { background: #fee2e2; color: #991b1b; }
+.status-pill.status-warning { background: #fef9c3; color: #92400e; }
+.status-pill.status-info { background: #e0f2fe; color: #075985; }
+
 /* Responsive */
 @media (max-width: 1024px) {
     .grid-layout { grid-template-columns: 1fr; }

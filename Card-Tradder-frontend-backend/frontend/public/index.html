@@ -134,7 +134,7 @@
                     <i class="fa-solid fa-plus-circle"></i> Publicar Carta
                 </a>
                 <a href="#" class="menu-item"><i class="fa-solid fa-handshake"></i> Intercambios</a>
-                <a href="#" class="menu-item"><i class="fa-solid fa-clock-rotate-left"></i> Historial</a>
+                <a href="#" class="menu-item" onclick="showView('history', this); loadOrderHistory();"><i class="fa-solid fa-clock-rotate-left"></i> Historial</a>
                 
                 <div class="menu-separator">CUENTA</div>
 
@@ -307,6 +307,30 @@
                 </div>
             </div>
 
+            <!-- VISTA HISTORIAL -->
+            <div id="view-history" class="view-section hidden">
+                <div class="card">
+                    <div class="card-header history-header">
+                        <div>
+                            <h3>Historial de órdenes</h3>
+                            <p class="subtext">Consulta todas tus compras, reservas y ventas con su trazabilidad.</p>
+                        </div>
+                        <div class="history-filters">
+                            <select class="form-input" id="history-status-filter" onchange="loadOrderHistory()">
+                                <option value="">Todos los estados</option>
+                                <option value="pendiente">Pendiente</option>
+                                <option value="reservada">Reservada</option>
+                                <option value="pagada">Pagada</option>
+                                <option value="cancelada">Cancelada</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card-body" id="history-list">
+                        <p class="subtext">Carga el historial para ver tus movimientos.</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- VISTA DETALLE CARTA -->
             <div id="view-card-detail" class="view-section hidden">
                 <button class="btn-secondary" onclick="goBackToCatalog()">
@@ -403,6 +427,12 @@
             return fetch(url, { ...options, headers });
         }
 
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+        }
+
         function renderListingCard(listing) {
             const card = listing.card || {};
             const image = listing.imageData || card.images?.large || 'black.jpg';
@@ -441,7 +471,7 @@
 
         // Mostrar vista principal (usada por el menú)
         function showView(viewName, element) {
-            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-admin', 'view-card-detail'];
+            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-admin', 'view-history', 'view-card-detail'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -462,7 +492,8 @@
                 dashboard: 'Mi Panel',
                 catalog: 'Buscar Cartas',
                 admin: 'Panel de Administración',
-                'card-detail': 'Detalle de Carta'
+                'card-detail': 'Detalle de Carta',
+                history: 'Historial',
             };
             document.getElementById('page-title').textContent = titles[viewName] || 'Card Trader';
 
@@ -470,11 +501,15 @@
                 const query = document.getElementById('searchInput')?.value || '';
                 if (!query) loadCatalogListings();
             }
+
+            if (viewName === 'history') {
+                loadOrderHistory();
+            }
         }
 
         // Helper para cambiar de vista desde otras funciones (detalle de carta)
         function showSection(sectionId) {
-            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-admin', 'view-card-detail'];
+            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-admin', 'view-history', 'view-card-detail'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -504,6 +539,7 @@
             loadHomeListings();
             loadCatalogListings();
             loadSellerListings();
+            loadOrderHistory();
         }
 
         async function loadHomeListings() {
@@ -834,6 +870,91 @@
             } catch (error) {
                 console.error(error);
                 alert('Error de conexión con el servidor.');
+            }
+        }
+
+        function renderStatusBadge(status) {
+            const className = {
+                pagada: 'success',
+                cancelada: 'danger',
+                reservada: 'warning',
+                pendiente: 'info',
+            }[status] || 'info';
+            return `<span class="status-pill status-${className}">${status}</span>`;
+        }
+
+        function renderHistoryItem(order) {
+            const cardName = order.card?.name || order.listingId?.description || order.listingId?.cardId || 'Carta';
+            const image = order.listingId?.imageData || order.card?.images?.small || 'black.jpg';
+            const counterpart = currentUser && order.buyerId && order.sellerId
+                ? (currentUser.id === (order.buyerId._id || order.buyerId) ? order.sellerId : order.buyerId)
+                : null;
+            const counterpartName = counterpart?.name || 'Otro usuario';
+            const counterpartEmail = counterpart?.email || '';
+
+            const historySteps = (order.history || []).map(step => `
+                <div class="history-step">
+                    <div class="history-step-header">
+                        ${renderStatusBadge(step.status)}
+                        <span class="history-step-date">${formatDate(step.changedAt)}</span>
+                    </div>
+                    <div class="history-step-body">
+                        <p class="history-note">${step.note || ''}</p>
+                        <p class="history-user">${step.changedBy?.name || 'Sistema'}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            return `
+                <div class="history-card">
+                    <div class="history-card-header">
+                        <div class="history-image-wrapper">
+                            <img src="${image}" alt="${cardName}" onerror="this.src='black.jpg'">
+                        </div>
+                        <div class="history-card-info">
+                            <div class="history-card-title">${cardName}</div>
+                            <div class="history-card-meta">
+                                <span>${order.type === 'reserva' ? 'Reserva' : 'Compra'}</span>
+                                ${renderStatusBadge(order.status)}
+                                <span class="history-total">${order.total ? '$' + order.total : ''}</span>
+                            </div>
+                            <p class="history-counterpart">Con: ${counterpartName}${counterpartEmail ? ' · ' + counterpartEmail : ''}</p>
+                            <p class="history-dates">Creada: ${formatDate(order.createdAt)}</p>
+                        </div>
+                    </div>
+                    <div class="history-steps">
+                        ${historySteps || '<p class="subtext">Sin eventos registrados.</p>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadOrderHistory() {
+            if (!authToken) return;
+            const container = document.getElementById('history-list');
+            if (!container) return;
+
+            container.innerHTML = '<p>Cargando historial...</p>';
+            const status = document.getElementById('history-status-filter')?.value;
+            const query = status ? `?status=${status}` : '';
+
+            try {
+                const res = await apiFetch('/api/orders' + query);
+                const data = await res.json();
+                if (!res.ok) {
+                    container.innerHTML = `<p>Error: ${data.message || 'No se pudo cargar el historial'}</p>`;
+                    return;
+                }
+
+                if (!data.orders || data.orders.length === 0) {
+                    container.innerHTML = '<p>No hay órdenes registradas aún.</p>';
+                    return;
+                }
+
+                container.innerHTML = data.orders.map(renderHistoryItem).join('');
+            } catch (error) {
+                console.error(error);
+                container.innerHTML = '<p>Error al cargar el historial.</p>';
             }
         }
 
