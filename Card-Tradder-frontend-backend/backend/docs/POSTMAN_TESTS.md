@@ -65,8 +65,9 @@ Este documento resume un flujo mínimo para validar la API con herramientas como
   { "listingId": "<id-listing-aprobado>", "type": "compra", "note": "Compra directa" }
   ```
   - Esperado: `201 Created` con `status: "pendiente"` y primer registro en `history`.
-- **Crear reserva** (`POST {{baseUrl}}/api/orders` con `type: "reserva"`)
-  - Esperado: estado inicial `reservada` y `history` indicando creación.
+- **Crear reserva** (`POST {{baseUrl}}/api/orders` con token de cliente y `type: "reserva"`)
+  - Solo el rol **cliente** puede reservar; otros roles obtienen `403 Forbidden`.
+  - Esperado: estado inicial `reservada`, `history` indicando creación y una notificación para el vendedor en `notifications`.
 - **Listar órdenes** (`GET {{baseUrl}}/api/orders`)
   - Admin: todas las órdenes. Vendedor: solo las de sus publicaciones. Cliente: solo sus compras/reservas.
 - **Detalle con historial** (`GET {{baseUrl}}/api/orders/:id`)

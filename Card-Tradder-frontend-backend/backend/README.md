@@ -72,12 +72,14 @@ docker compose up --build
 - Las publicaciones rechazadas deben incluir `rejectionReason`; el admin debe enviarla al usar `PATCH /api/admin/publications/:id/status` con `status="rechazada"`.
 - Las órdenes en estado `reservada` se auto-cancelan tras 24 horas sin confirmación de pago; el historial y las notificaciones de la orden reflejan la caducidad y el comprador recibe aviso.
 - Cuando un vendedor marca una orden como `pagada` o `cancelada`, el sistema agrega una notificación para el comprador (campo `notifications`).
+- Solo el rol `cliente` puede crear reservas; si otro rol lo intenta, `POST /api/orders` responde con 403.
 
 ### Órdenes, reservas y pagos externos
 
 - **Crear orden o reserva**: `POST /api/orders` con `listingId` y `type` (`compra` o `reserva`).
   - `type=compra` → estado inicial `pendiente`.
   - `type=reserva` → estado inicial `reservada`.
+  - Al crear una reserva, se agrega una notificación dirigida al vendedor en el campo `notifications` de la orden.
 - **Consultar mis órdenes**: `GET /api/orders`
   - Admin: todas las órdenes.
   - Vendedor: órdenes de sus publicaciones.

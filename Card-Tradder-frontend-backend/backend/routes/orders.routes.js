@@ -78,7 +78,22 @@ router.post('/', authRequired, async (req, res) => {
     }
 
     const normalizedType = type === 'reserva' ? 'reserva' : 'compra';
+
+    if (normalizedType === 'reserva' && req.user.role !== 'cliente') {
+      return res.status(403).json({ message: 'Solo los clientes pueden crear reservas.' });
+    }
     const initialStatus = normalizedType === 'reserva' ? 'reservada' : 'pendiente';
+
+    const buyer = await User.findById(req.user.id).select('name');
+    const notifications = [];
+
+    if (normalizedType === 'reserva') {
+      notifications.push({
+        type: 'info',
+        message: `${buyer?.name || 'El cliente'} ha creado una reserva para tu publicación "${listing.name}"`,
+        recipient: 'seller',
+      });
+    }
 
     const order = await Order.create({
       listingId,
@@ -96,6 +111,7 @@ router.post('/', authRequired, async (req, res) => {
         },
       ],
       notes: note,
+      notifications,
     });
 
     await order
