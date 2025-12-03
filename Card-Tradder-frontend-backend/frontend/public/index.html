@@ -236,6 +236,9 @@
                                     <span class="badge badge-success" id="profile-role">Vendedor</span>
                                 </div>
                                 <div class="profile-detail">
+                                    <label>WhatsApp</label><p id="profile-whatsapp" class="subtext">No configurado</p>
+                                </div>
+                                <div class="profile-detail">
                                     <label>Reputación</label>
                                     <div class="stars">
                                         <i class="fa-solid fa-star"></i>
@@ -245,7 +248,7 @@
                                         <i class="fa-solid fa-star-half-stroke"></i>
                                     </div>
                                 </div>
-                                <button class="btn-block">Editar Cliente</button>
+                                <button class="btn-block" onclick="openProfileModal()">Editar perfil</button>
                             </div>
                         </div>
                     </div>
@@ -480,6 +483,35 @@
         </div>
     </div>
 
+    <!-- MODAL PERFIL -->
+    <div class="modal-overlay" id="modalProfile">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>Editar perfil</h2>
+                <button class="btn-close" onclick="toggleProfileModal(false)">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="profile-form" onsubmit="handleProfileSubmit(event)">
+                    <div class="form-group">
+                        <label>Nombre completo</label>
+                        <input type="text" class="form-input" id="profile-edit-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>WhatsApp (solo visible para tus compradores con reserva)</label>
+                        <input type="text" class="form-input" id="profile-edit-whatsapp" placeholder="Ej: +56912345678">
+                        <small>Este número se usa como valor por defecto en tus publicaciones nuevas y solo lo ve quien tiene una reserva activa.</small>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" onclick="toggleProfileModal(false)">Cancelar</button>
+                        <button type="submit" class="btn-primary">Guardar cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- ======================================================= -->
     <!-- LÓGICA JAVASCRIPT                                       -->
     <!-- ======================================================= -->
@@ -497,6 +529,20 @@
         let sellerNotifications = [];
         let editingListingId = null;
         let listingContactCache = new Map();
+
+        function renderProfileInfo(user) {
+            if (!user) return;
+
+            document.getElementById('profile-name').innerText = user.name || '';
+            document.getElementById('profile-role').innerText = (user.role || '').toUpperCase();
+            document.getElementById('profile-email').innerText = user.email || '';
+
+            const whatsappEl = document.getElementById('profile-whatsapp');
+            if (whatsappEl) {
+                whatsappEl.innerText = user.contactWhatsapp || 'No configurado';
+                whatsappEl.classList.toggle('subtext', !user.contactWhatsapp);
+            }
+        }
 
         function persistSession(token, user) {
             authToken = token;
@@ -872,6 +918,11 @@
             document.getElementById('publish-submit-label').innerText = 'Enviar a Revisión';
             listingImageBase64 = null;
             editingListingId = null;
+
+            const whatsappInput = document.getElementById('listing-whatsapp');
+            if (whatsappInput) {
+                whatsappInput.value = currentUser?.contactWhatsapp || '';
+            }
         }
 
         function toggleModal(forceOpen = null) {
@@ -889,6 +940,21 @@
 
             if (!targetState) {
                 resetListingForm();
+            }
+
+            modal.classList.toggle('active', targetState);
+        }
+
+        function toggleProfileModal(forceOpen = null) {
+            const modal = document.getElementById('modalProfile');
+            if (!modal) return;
+
+            const isOpen = modal.classList.contains('active');
+            const targetState = forceOpen === null ? !isOpen : !!forceOpen;
+
+            if (targetState && !currentUser) {
+                alert('Debes iniciar sesión para editar tu perfil.');
+                return;
             }
 
             modal.classList.toggle('active', targetState);
@@ -942,6 +1008,17 @@
             }
         }
 
+        function openProfileModal() {
+            if (!currentUser) {
+                alert('Debes iniciar sesión para editar tu perfil.');
+                return;
+            }
+
+            document.getElementById('profile-edit-name').value = currentUser.name || '';
+            document.getElementById('profile-edit-whatsapp').value = currentUser.contactWhatsapp || '';
+            toggleProfileModal(true);
+        }
+
         // Helper para cambiar de vista desde otras funciones (detalle de carta)
         function showSection(sectionId) {
             const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-publications', 'view-admin', 'view-history', 'view-card-detail'];
@@ -978,11 +1055,9 @@
 
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('main-app').classList.remove('hidden');
-            
+
             document.getElementById('user-display-name').innerText = user.name;
-            document.getElementById('profile-name').innerText = user.name;
-            document.getElementById('profile-role').innerText = user.role.toUpperCase();
-            document.getElementById('profile-email').innerText = user.email;
+            renderProfileInfo(user);
 
             // Mostrar/ocultar cosas solo admin
             const adminItems = document.querySelectorAll('.admin-only');
@@ -1575,6 +1650,62 @@
                 }
             } catch (error) {
                 console.error(error);
+                alert('Error de conexión con el servidor.');
+            }
+        }
+
+        async function handleProfileSubmit(e) {
+            e.preventDefault();
+
+            if (!authToken || !currentUser) {
+                alert('Debes iniciar sesión para actualizar tu perfil.');
+                return;
+            }
+
+            const name = document.getElementById('profile-edit-name').value.trim();
+            const contactWhatsapp = document.getElementById('profile-edit-whatsapp').value.trim();
+            const payload = {};
+
+            if (name && name !== currentUser.name) {
+                payload.name = name;
+            }
+
+            if (contactWhatsapp !== (currentUser.contactWhatsapp || '')) {
+                payload.contactWhatsapp = contactWhatsapp || null;
+            }
+
+            if (!Object.keys(payload).length) {
+                alert('No realizaste cambios en tu perfil.');
+                return;
+            }
+
+            try {
+                const res = await apiFetch('/api/me', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    currentUser = { ...currentUser, ...data.user };
+                    persistSession(authToken, currentUser);
+                    renderProfileInfo(currentUser);
+                    document.getElementById('user-display-name').innerText = currentUser.name;
+
+                    const listingWhatsapp = document.getElementById('listing-whatsapp');
+                    if (listingWhatsapp && !editingListingId) {
+                        listingWhatsapp.value = currentUser.contactWhatsapp || '';
+                    }
+
+                    toggleProfileModal(false);
+                    alert('✅ Perfil actualizado.');
+                } else {
+                    alert('❌ Error: ' + (data.message || 'No se pudo actualizar el perfil'));
+                }
+            } catch (error) {
+                console.error('Error al actualizar perfil', error);
                 alert('Error de conexión con el servidor.');
             }
         }

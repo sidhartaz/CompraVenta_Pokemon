@@ -93,7 +93,7 @@ connectRedis().catch((err) => {
 // Registro
 app.post('/api/register', async (req, res) => {
   console.log('📩 Registro:', req.body.email);
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, contactWhatsapp } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ message: 'Faltan datos' });
@@ -116,6 +116,7 @@ app.post('/api/register', async (req, res) => {
       email,
       password: hashedPassword,
       role: finalRole,
+      contactWhatsapp,
     });
 
     await newUser.save();
@@ -128,6 +129,7 @@ app.post('/api/register', async (req, res) => {
         email: newUser.email,
         name: newUser.name,
         role: newUser.role,
+        contactWhatsapp: newUser.contactWhatsapp,
       },
     });
   } catch (error) {
@@ -174,6 +176,7 @@ app.post('/api/login', async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        contactWhatsapp: user.contactWhatsapp,
       },
     });
   } catch (error) {
@@ -187,7 +190,7 @@ app.post('/api/login', async (req, res) => {
 // Cualquier usuario autenticado (cliente o vendedor)
 app.get('/api/me', authRequired, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('name email role');
+    const user = await User.findById(req.user.id).select('name email role contactWhatsapp');
 
     if (!user) {
       return res.status(404).json({ message: 'Usuario no encontrado' });
@@ -200,11 +203,58 @@ app.get('/api/me', authRequired, async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        contactWhatsapp: user.contactWhatsapp,
       },
     });
   } catch (err) {
     console.error('Error en GET /api/me:', err);
     return res.status(500).json({ message: 'Error al recuperar el usuario' });
+  }
+});
+
+// Actualizar perfil propio (nombre y WhatsApp)
+app.patch('/api/me', authRequired, async (req, res) => {
+  try {
+    const { name, contactWhatsapp } = req.body || {};
+
+    const updates = {};
+
+    if (name !== undefined) {
+      if (!name.trim()) {
+        return res.status(400).json({ message: 'El nombre no puede estar vacío.' });
+      }
+      updates.name = name.trim();
+    }
+
+    if (contactWhatsapp !== undefined) {
+      updates.contactWhatsapp = contactWhatsapp ? contactWhatsapp.trim() : undefined;
+    }
+
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ message: 'No se enviaron cambios para actualizar.' });
+    }
+
+    const updated = await User.findByIdAndUpdate(req.user.id, updates, { new: true }).select(
+      'name email role contactWhatsapp'
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    return res.json({
+      message: 'Perfil actualizado con éxito',
+      user: {
+        id: updated._id,
+        name: updated.name,
+        email: updated.email,
+        role: updated.role,
+        contactWhatsapp: updated.contactWhatsapp,
+      },
+    });
+  } catch (error) {
+    console.error('Error en PATCH /api/me:', error);
+    return res.status(500).json({ message: 'Error al actualizar el perfil' });
   }
 });
 
@@ -384,6 +434,12 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
 
     const slug = await generateUniqueSlug(name);
 
+    let sellerContact = contactWhatsapp;
+    if (sellerContact === undefined) {
+      const seller = await User.findById(req.user.id).select('contactWhatsapp');
+      sellerContact = seller?.contactWhatsapp;
+    }
+
     const newListing = new Listing({
       cardId,
       name,
@@ -392,7 +448,7 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
       condition,
       description,
       imageData,
-      contactWhatsapp,
+      contactWhatsapp: sellerContact,
       sellerId: req.user.id, // del token JWT
       status: 'pendiente',
     });

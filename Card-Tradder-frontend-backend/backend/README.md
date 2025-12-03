@@ -54,6 +54,7 @@ docker compose up --build
 - **Registro**: `POST /api/register` con `name`, `email`, `password` y `role` (`cliente`, `vendedor` o `admin`).
 - **Login**: `POST /api/login` devuelve JWT y rol.
 - **Ruta protegida**: `GET /api/me` requiere header `Authorization: Bearer <token>`.
+- **Actualizar perfil**: `PATCH /api/me` permite cambiar `name` y `contactWhatsapp` del usuario autenticado (el WhatsApp se reutiliza como valor por defecto al crear publicaciones nuevas).
 - **Restricción por rol**:
   - `GET /api/listings` devuelve únicamente publicaciones aprobadas por defecto (opcional `?status=` para otros filtros) y devuelve el vendedor (solo `status=aprobada` se usa en catálogos de cartas).
   - `POST/PUT/DELETE /api/listings` solo para rol `vendedor` y únicamente sobre sus propias publicaciones. Aceptan `imageData` (base64) y `contactWhatsapp` opcionales; el WhatsApp se protege y solo se expone mediante `GET /api/listings/:id/contact` al vendedor, admin o comprador con reserva activa.

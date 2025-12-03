@@ -29,6 +29,11 @@ Este documento resume un flujo mínimo para validar la API con herramientas como
   - Esperado: `200 OK` con `token` y `role`.
 - **Perfil protegido** (`GET {{baseUrl}}/api/me` con `Authorization: Bearer {{adminToken}}`)
   - Esperado: `200 OK` con datos del usuario autenticado.
+- **Actualizar perfil** (`PATCH {{baseUrl}}/api/me` con token del usuario)
+  ```json
+  { "name": "Nuevo nombre", "contactWhatsapp": "+56998765432" }
+  ```
+  - Esperado: `200 OK` con el perfil actualizado. El WhatsApp se usará como valor por defecto en nuevas publicaciones.
 
 ## 2) Publicación y aprobación de cartas
 - **Crear listing (vendedor)** (`POST {{baseUrl}}/api/listings` con token de vendedor)
