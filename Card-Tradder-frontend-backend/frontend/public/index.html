@@ -2138,6 +2138,8 @@
             const createdLabel = order.createdAt ? formatDate(order.createdAt) : '';
             const expiresLabel = expiresAt ? formatDate(expiresAt) : '';
             const total = order.total || listing.price;
+            const contact = (listing.contactWhatsapp || '').trim();
+            const contactLink = contact ? `https://wa.me/${contact.replace(/^\\+/, '')}` : '';
 
             return `
                 <div class="reservation-card">
@@ -2154,6 +2156,12 @@
                             </div>
                             <p class="reservation-detail">Vendedor: ${seller.name || 'Sin datos'}${seller.email ? ' · ' + seller.email : ''}</p>
                             <p class="reservation-detail">Importe reservado: ${total ? '$' + total : 'Pendiente de total'}</p>
+                            ${contact
+                              ? `<div class="reservation-contact">
+                                    <span class="chip chip-success"><i class="fa-brands fa-whatsapp"></i> WhatsApp del vendedor</span>
+                                    <a class="reservation-contact__number" href="${contactLink}" target="_blank" rel="noopener">${contact}</a>
+                                 </div>`
+                              : '<p class="reservation-detail subtext">El vendedor aún no ha añadido su WhatsApp.</p>'}
                         </div>
                     </div>
                     <div class="reservation-actions">

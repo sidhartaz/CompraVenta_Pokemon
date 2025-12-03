@@ -30,15 +30,39 @@ function canSeeListingContact(order, user) {
   return isReservationOwner && order.status !== 'cancelada';
 }
 
-function stripContactFromOrder(order, user) {
+async function ensureContactForOrder(order, user) {
   if (!order?.listingId) return order;
 
-  if (!canSeeListingContact(order, user)) {
+  const canSee = canSeeListingContact(order, user);
+
+  // Oculta el contacto si el usuario no está autorizado
+  if (!canSee) {
     if (order.listingId.contactWhatsapp !== undefined) {
-      order.listingId = { ...order.listingId, contactWhatsapp: undefined };
+      const listingData = typeof order.listingId.toObject === 'function'
+        ? order.listingId.toObject()
+        : order.listingId;
+
+      order.listingId = { ...listingData, contactWhatsapp: undefined };
+    }
+
+    return order;
+  }
+
+  const listingData = typeof order.listingId.toObject === 'function'
+    ? order.listingId.toObject()
+    : order.listingId;
+
+  if (!listingData.contactWhatsapp) {
+    const sellerId = normalizeId(order.sellerId);
+    if (sellerId) {
+      const seller = await User.findById(sellerId).select('contactWhatsapp').lean();
+      if (seller?.contactWhatsapp) {
+        listingData.contactWhatsapp = seller.contactWhatsapp;
+      }
     }
   }
 
+  order.listingId = listingData;
   return order;
 }
 
@@ -181,7 +205,7 @@ router.post('/', authRequired, async (req, res) => {
       { path: 'listingId' },
     ]);
 
-    stripContactFromOrder(order, req.user);
+    await ensureContactForOrder(order, req.user);
 
     return res.status(201).json({ order });
   } catch (err) {
@@ -224,7 +248,9 @@ router.get('/', authRequired, async (req, res) => {
       .lean();
 
     const enrichedOrders = await attachCardData(orders);
-    const sanitized = enrichedOrders.map((order) => stripContactFromOrder(order, req.user));
+    const sanitized = await Promise.all(
+      enrichedOrders.map((order) => ensureContactForOrder(order, req.user))
+    );
 
     return res.json({ orders: sanitized });
   } catch (err) {
@@ -256,8 +282,9 @@ router.get('/:id', authRequired, async (req, res) => {
     }
 
     const [orderWithCard] = await attachCardData([order]);
+    const sanitized = await ensureContactForOrder(orderWithCard, req.user);
 
-    return res.json({ order: stripContactFromOrder(orderWithCard, req.user) });
+    return res.json({ order: sanitized });
   } catch (err) {
     console.error('Error en GET /api/orders/:id:', err);
     return res.status(500).json({ message: 'Error al obtener la orden' });
@@ -355,7 +382,7 @@ router.patch('/:id/status', authRequired, async (req, res) => {
       { path: 'listingId' },
     ]);
 
-    stripContactFromOrder(order, req.user);
+    await ensureContactForOrder(order, req.user);
 
     return res.json({ order });
   } catch (err) {

@@ -720,6 +720,9 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
 .reservation-title { margin: 0; font-size: 1.05rem; color: var(--text-dark); }
 .reservation-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .reservation-detail { margin: 0; color: var(--text-gray); font-size: 0.9rem; }
+.reservation-contact { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.reservation-contact__number { font-weight: 700; color: var(--primary-color); text-decoration: none; word-break: break-word; }
+.reservation-contact__number:hover { text-decoration: underline; }
 .reservation-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 
 /* Responsive */
