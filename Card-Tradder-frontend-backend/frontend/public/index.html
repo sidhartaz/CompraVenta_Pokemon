@@ -757,22 +757,18 @@
             const listingId = listing._id || listing.id;
             if (!listingId) return '';
 
-            if (canCurrentUserSeeContact(listing)) {
-                return `
-                    <div class="contact-box" id="contact-box-${listingId}">
-                        <p class="subtext">Solo tú puedes ver el WhatsApp del vendedor gracias a tu reserva.</p>
-                        <button class="btn-primary" type="button" onclick="event.stopPropagation(); revealContact('${listingId}')">
-                            <i class="fa-brands fa-whatsapp"></i> Ver contacto WhatsApp
-                        </button>
-                        <p class="contact-error subtext"></p>
-                    </div>
-                `;
-            }
+            const allowed = canCurrentUserSeeContact(listing);
+            const helper = allowed
+                ? 'Solo tú puedes ver el WhatsApp del vendedor gracias a tu reserva.'
+                : 'Pulsa para validar tu acceso: solo quien tiene la reserva activa podrá ver el contacto.';
 
             return `
-                <div class="contact-box disabled">
-                    <span class="availability-note">El contacto directo solo se habilita para quien tiene la reserva activa.</span>
-                    <p class="subtext">Reserva ${itemLabel} para ver el WhatsApp del vendedor.</p>
+                <div class="contact-box${allowed ? '' : ' disabled'}" id="contact-box-${listingId}">
+                    <p class="subtext">${helper}</p>
+                    <button class="${allowed ? 'btn-primary' : 'btn-secondary'}" type="button" onclick="event.stopPropagation(); revealContact('${listingId}')">
+                        <i class="fa-brands fa-whatsapp"></i> Ver contacto WhatsApp
+                    </button>
+                    <p class="contact-error subtext"></p>
                 </div>
             `;
         }
@@ -814,6 +810,10 @@
                 const numeric = contact.replace(/[^0-9]/g, '');
                 const whatsappTarget = numeric || contact;
                 const link = `https://wa.me/${whatsappTarget.replace(/^\+/, '')}`;
+
+                if (box) {
+                    box.classList.remove('disabled');
+                }
 
                 box.innerHTML = `
                     <div class="contact-display">
