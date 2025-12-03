@@ -808,6 +808,37 @@
             `;
         }
 
+        function renderDetailContactCta(listing, itemLabel = 'esta publicación') {
+            const listingId = listing._id || listing.id;
+            if (!listingId) return '';
+
+            return `
+                <div class="contact-card detail-contact" id="contact-box-${listingId}">
+                    <div class="detail-contact__header">
+                        <div>
+                            <p class="eyebrow">Contacto WhatsApp</p>
+                            <h4>${itemLabel}</h4>
+                            <p class="subtext contact-helper">Validando privilegios de reserva...</p>
+                        </div>
+                        <div class="contact-chip chip-muted">
+                            <i class="fa-brands fa-whatsapp"></i><span>Reserva requerida</span>
+                        </div>
+                    </div>
+
+                    <div class="detail-contact__body">
+                        <div class="contact-inline">
+                            <div class="contact-inline__icon"><i class="fa-brands fa-whatsapp"></i></div>
+                            <div>
+                                <p class="contact-title">WhatsApp del vendedor</p>
+                                <p class="contact-number">Cargando contacto...</p>
+                            </div>
+                        </div>
+                        <p class="contact-error subtext"></p>
+                    </div>
+                </div>
+            `;
+        }
+
         async function revealContact(listingId) {
             if (!authToken) {
                 alert('Debes iniciar sesión para ver el contacto del vendedor.');
@@ -875,6 +906,86 @@
                 if (errorEl) errorEl.textContent = 'No se pudo cargar el contacto. Intenta nuevamente.';
             } finally {
                 if (button) button.disabled = false;
+            }
+        }
+
+        async function hydrateDetailContact(listing) {
+            const listingId = getIdValue(listing?._id || listing?.id);
+            if (!listingId) return;
+
+            const box = document.getElementById(`contact-box-${listingId}`);
+            if (!box) return;
+
+            const errorEl = box.querySelector('.contact-error');
+            const numberEl = box.querySelector('.contact-number');
+            const helperEl = box.querySelector('.contact-helper');
+            const chipEl = box.querySelector('.contact-chip');
+
+            const setChip = (text, variant = 'chip-muted') => {
+                if (!chipEl) return;
+                chipEl.classList.remove('chip-success', 'chip-muted');
+                chipEl.classList.add(variant);
+                chipEl.innerHTML = `<i class="fa-brands fa-whatsapp"></i><span>${text}</span>`;
+            };
+
+            const setNumber = (content) => {
+                if (numberEl) numberEl.innerHTML = content;
+            };
+
+            const setHelper = (text) => {
+                if (helperEl) helperEl.textContent = text;
+            };
+
+            box.classList.remove('contact-ready');
+            setChip('Validando acceso');
+            setHelper('Validando privilegios de reserva...');
+            if (errorEl) errorEl.textContent = '';
+            setNumber('Cargando contacto...');
+
+            if (!authToken) {
+                setNumber('Inicia sesión para ver el contacto');
+                setHelper('Inicia sesión para recuperar el WhatsApp.');
+                setChip('Inicio de sesión requerido');
+                return;
+            }
+
+            try {
+                let contact = listingContactCache.get(listingId);
+
+                if (!contact) {
+                    const res = await apiFetch(`/api/listings/${listingId}/contact`);
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        setHelper('Necesitas una reserva activa para ver el WhatsApp.');
+                        setNumber('No autorizado');
+                        if (errorEl) errorEl.textContent = data.message || 'No se pudo recuperar el contacto.';
+                        return;
+                    }
+
+                    contact = data.contactWhatsapp;
+                    listingContactCache.set(listingId, contact);
+                }
+
+                if (!contact) {
+                    setHelper('El vendedor no ha configurado su WhatsApp.');
+                    setNumber('Sin número configurado');
+                    return;
+                }
+
+                const numeric = contact.replace(/[^0-9]/g, '');
+                const whatsappTarget = numeric || contact;
+                const link = `https://wa.me/${whatsappTarget.replace(/^\+/, '')}`;
+
+                setChip('Contacto disponible', 'chip-success');
+                setHelper('Listo para enviar mensaje por WhatsApp.');
+                setNumber(`<a href="${link}" target="_blank" rel="noopener noreferrer">${contact}</a>`);
+                box.classList.add('contact-ready');
+            } catch (error) {
+                console.error('Error al cargar contacto', error);
+                setHelper('No se pudo cargar el contacto.');
+                setNumber('No disponible');
+                if (errorEl) errorEl.textContent = 'No se pudo cargar el contacto. Intenta nuevamente.';
             }
         }
 
@@ -2228,19 +2339,19 @@
                                         $${listing.price}
                                         <span class="seller-condition">(${listing.condition})</span>
                                     </div>
-                                    ${available
+                            ${available
                                         ? `<div class="seller-actions">
                                             ${isClient
                                                 ? `<button class="btn-reserve" onclick="createOrder('${listing._id || listing.id}','reserva')">Reservar</button>`
                                                 : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
                                             }
-                                            <span class="availability-note">El WhatsApp se mostrará una vez que confirmes tu reserva.</span>
+                                            <span class="availability-note">El WhatsApp se mostrará solo a clientes con reserva activa.</span>
                                         </div>`
                                         : `<div class="seller-actions disabled">
                                             <span class="availability-note">No disponible para reservar.</span>
                                         </div>`
                                     }
-                                    ${renderContactCta(listing, card?.name || listing.cardId)}
+                                    ${renderDetailContactCta(listing, card?.name || listing.cardId)}
                                 </div>
                             </div>
 
@@ -2252,7 +2363,7 @@
                 `;
                 clearCountdowns();
                 activateCountdowns(container);
-                autoRevealContactIfAllowed(listing);
+                hydrateDetailContact(listing);
             } catch (error) {
                 console.error(error);
                 container.innerHTML = "<p>Error cargando la publicación.</p>";

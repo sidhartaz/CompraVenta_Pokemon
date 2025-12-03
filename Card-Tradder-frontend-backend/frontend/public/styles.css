@@ -326,6 +326,56 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
 .contact-number a:hover { color: #2563eb; }
 .contact-helper { color: #475569; }
 
+.detail-contact {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 12px 28px -20px rgba(15, 23, 42, 0.3);
+    gap: 14px;
+}
+
+.detail-contact__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.detail-contact__body {
+    display: grid;
+    gap: 10px;
+}
+
+.contact-inline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.contact-inline__icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: #ecfeff;
+    color: #0ea5e9;
+    display: grid;
+    place-items: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.detail-contact.contact-ready .contact-number a {
+    color: #0f172a;
+    font-weight: 800;
+}
+
+.detail-contact.contact-ready .contact-number a:hover {
+    color: #2563eb;
+}
+
 .reservation-timer {
     display: inline-flex;
     align-items: center;
