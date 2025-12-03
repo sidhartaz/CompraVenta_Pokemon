@@ -99,27 +99,39 @@
                 sellerReservationMap = new Map();
                 sellerNotifications = [];
 
+                const pickPrimaryReservation = (current, incoming) => {
+                    if (!current) return incoming;
+
+                    const activeStatuses = ['pendiente', 'reservada'];
+                    const currentActive = activeStatuses.includes(current.status);
+                    const incomingActive = activeStatuses.includes(incoming.status);
+
+                    const currentDate = new Date(current.createdAt || current.updatedAt || 0).getTime();
+                    const incomingDate = new Date(incoming.createdAt || incoming.updatedAt || 0).getTime();
+
+                    if (currentActive && incomingActive) {
+                        return incomingDate < currentDate ? incoming : current;
+                    }
+
+                    if (currentActive || incomingActive) {
+                        return currentActive ? current : incoming;
+                    }
+
+                    return incomingDate < currentDate ? incoming : current;
+                };
+
                 reservations.forEach(order => {
                     const listingKey = order.listingId?._id || order.listingId;
                     const normalizedKey = listingKey ? String(listingKey) : null;
 
                     if (normalizedKey) {
                         const existing = sellerReservationMap.get(normalizedKey);
-                        const existingDate = existing ? new Date(existing.createdAt || existing.updatedAt || 0).getTime() : 0;
-                        const currentDate = new Date(order.createdAt || order.updatedAt || 0).getTime();
-                        const existingActive = existing && ['pendiente', 'reservada'].includes(existing.status);
-                        const currentActive = ['pendiente', 'reservada'].includes(order.status);
-
-                        const shouldReplace =
-                            !existing ||
-                            (currentActive && !existingActive) ||
-                            currentDate > existingDate;
-
-                        if (shouldReplace) {
-                            sellerReservationMap.set(normalizedKey, order);
-                        }
+                        const chosen = pickPrimaryReservation(existing, order);
+                        sellerReservationMap.set(normalizedKey, chosen);
                     }
+                });
 
+                sellerReservationMap.forEach((order) => {
                     (order.notifications || []).forEach(note => {
                         if (note.recipient === 'seller') {
                             sellerNotifications.push({
