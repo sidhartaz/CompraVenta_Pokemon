@@ -150,10 +150,11 @@ router.post('/', authRequired, async (req, res) => {
       });
     }
 
-    await order
-      .populate('buyerId', 'name email role')
-      .populate('sellerId', 'name email role')
-      .populate('listingId');
+    await order.populate([
+      { path: 'buyerId', select: 'name email role' },
+      { path: 'sellerId', select: 'name email role' },
+      { path: 'listingId' },
+    ]);
 
     return res.status(201).json({ order });
   } catch (err) {
@@ -315,10 +316,11 @@ router.patch('/:id/status', authRequired, async (req, res) => {
       }
     }
 
-    await order
-      .populate('buyerId', 'name email role')
-      .populate('sellerId', 'name email role')
-      .populate('listingId');
+    await order.populate([
+      { path: 'buyerId', select: 'name email role' },
+      { path: 'sellerId', select: 'name email role' },
+      { path: 'listingId' },
+    ]);
 
     return res.json({ order });
   } catch (err) {
