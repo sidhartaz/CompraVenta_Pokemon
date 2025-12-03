@@ -71,13 +71,6 @@ router.post('/', authRequired, async (req, res) => {
       return res.status(400).json({ message: 'La publicación no está disponible para nuevas órdenes o reservas.' });
     }
 
-    const reservationActive =
-      !!listing.reservedUntil && new Date(listing.reservedUntil).getTime() > Date.now();
-
-    if (reservationActive) {
-      return res.status(400).json({ message: 'La publicación está reservada en este momento.' });
-    }
-
     const weekAgo = new Date(Date.now() - 7 * DAY_IN_MS);
     const weeklyOrders = await Order.countDocuments({
       buyerId: req.user.id,
@@ -95,17 +88,21 @@ router.post('/', authRequired, async (req, res) => {
       return res.status(403).json({ message: 'Solo los clientes pueden crear reservas.' });
     }
 
-    if (normalizedType === 'reserva') {
-      const existingReservation = await Order.findOne({
-        listingId,
-        type: 'reserva',
-        status: { $in: ['reservada', 'pendiente', 'pagada'] },
-      });
+    const activeReservation = await Order.findOne({
+      listingId,
+      type: 'reserva',
+      status: { $in: ['reservada', 'pendiente', 'pagada'] },
+    });
 
-      if (existingReservation) {
-        return res.status(400).json({ message: 'Esta publicación ya cuenta con una reserva activa.' });
-      }
+    if (activeReservation) {
+      const message =
+        normalizedType === 'reserva'
+          ? 'Esta publicación ya cuenta con una reserva activa.'
+          : 'La publicación tiene una reserva pendiente o activa en este momento.';
+
+      return res.status(400).json({ message });
     }
+
     const initialStatus = 'pendiente';
 
     const buyer = await User.findById(req.user.id).select('name');
@@ -148,7 +145,6 @@ router.post('/', authRequired, async (req, res) => {
       await markListingReservation(listingId, {
         reservedBy: req.user.id,
         reservedUntil: reservationExpiresAt,
-        isActive: false,
       });
     }
 
@@ -312,6 +308,7 @@ router.patch('/:id/status', authRequired, async (req, res) => {
         await markListingReservation(order.listingId, {
           reservedBy: order.buyerId,
           reservedUntil: order.reservationExpiresAt,
+          isActive: false,
         });
       }
     }
