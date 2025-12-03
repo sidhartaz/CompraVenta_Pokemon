@@ -1001,10 +1001,11 @@
                 sellerNotifications = [];
 
                 reservations.forEach(order => {
-                    if (order.listingId?._id) {
-                        sellerReservationMap.set(String(order.listingId._id), order);
-                    } else if (order.listingId) {
-                        sellerReservationMap.set(String(order.listingId), order);
+                    const listingKey = order.listingId?._id || order.listingId;
+                    const normalizedKey = listingKey ? String(listingKey) : null;
+
+                    if (normalizedKey && !sellerReservationMap.has(normalizedKey)) {
+                        sellerReservationMap.set(normalizedKey, order);
                     }
 
                     (order.notifications || []).forEach(note => {
