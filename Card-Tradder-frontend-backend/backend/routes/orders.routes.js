@@ -27,7 +27,9 @@ function canSeeListingContact(order, user) {
   const buyerId = normalizeId(order.buyerId);
   const isReservationOwner = order.type === 'reserva' && buyerId === user.id;
 
-  return isReservationOwner && order.status !== 'cancelada';
+  const allowedStatuses = ['reservada', 'pagada'];
+
+  return isReservationOwner && allowedStatuses.includes(order.status);
 }
 
 async function ensureContactForOrder(order, user) {

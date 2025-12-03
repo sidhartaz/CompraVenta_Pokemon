@@ -139,7 +139,7 @@ async function getListingContact(req, res) {
       listingId: id,
       buyerId: req.user.id,
       type: 'reserva',
-      status: { $in: ['pendiente', 'reservada', 'pagada'] },
+      status: { $in: ['reservada', 'pagada'] },
     });
 
     if (!isSeller && !isAdmin && !hasActiveReservation && !isReservedByUser) {

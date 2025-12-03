@@ -170,7 +170,7 @@ function hasActiveReservationForCurrentUser(listing) {
     const userId = getCurrentUserId();
     if (!listingId || !userId) return false;
 
-    const activeReservationStatuses = ['pendiente', 'reservada', 'pagada'];
+    const activeReservationStatuses = ['reservada', 'pagada'];
 
     return historyOrdersCache.some(order => {
         const orderListingId = getIdValue(order?.listingId?._id || order?.listingId);
@@ -1605,6 +1605,8 @@ function renderClientReservationCard(order) {
     const total = order.total || listing.price;
     const contact = (listing.contactWhatsapp || '').trim();
     const contactLink = contact ? `https://wa.me/${contact.replace(/^\\+/, '')}` : '';
+    const contactAllowed = ['reservada', 'pagada'].includes(status);
+    const showContact = contactAllowed && contact;
 
     return `
         <div class="reservation-card">
@@ -1621,12 +1623,14 @@ function renderClientReservationCard(order) {
                     </div>
                     <p class="reservation-detail">Vendedor: ${seller.name || 'Sin datos'}${seller.email ? ' · ' + seller.email : ''}</p>
                     <p class="reservation-detail">Importe reservado: ${total ? '$' + total : 'Pendiente de total'}</p>
-                    ${contact
+                    ${showContact
                       ? `<div class="reservation-contact">
                             <span class="chip chip-success"><i class="fa-brands fa-whatsapp"></i> WhatsApp del vendedor</span>
                             <a class="reservation-contact__number" href="${contactLink}" target="_blank" rel="noopener">${contact}</a>
                          </div>`
-                      : '<p class="reservation-detail subtext">El vendedor aún no ha añadido su WhatsApp.</p>'}
+                      : contactAllowed
+                        ? '<p class="reservation-detail subtext">El vendedor aún no ha añadido su WhatsApp.</p>'
+                        : '<p class="reservation-detail subtext">La reserva debe ser aprobada para ver el WhatsApp.</p>'}
                 </div>
             </div>
             <div class="reservation-actions">
