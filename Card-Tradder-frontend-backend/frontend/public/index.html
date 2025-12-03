@@ -1002,7 +1002,9 @@
 
                 reservations.forEach(order => {
                     if (order.listingId?._id) {
-                        sellerReservationMap.set(order.listingId._id, order);
+                        sellerReservationMap.set(String(order.listingId._id), order);
+                    } else if (order.listingId) {
+                        sellerReservationMap.set(String(order.listingId), order);
                     }
 
                     (order.notifications || []).forEach(note => {
@@ -1023,7 +1025,12 @@
                 if (!mine.length) {
                     container.innerHTML = '<p>No tienes publicaciones aún.</p>';
                 } else {
-                    container.innerHTML = mine.map(lst => renderSellerListing(lst, sellerReservationMap.get(lst._id || lst.id))).join('');
+                    container.innerHTML = mine
+                        .map((lst) => {
+                            const listingKey = String(lst._id || lst.id || '');
+                            return renderSellerListing(lst, sellerReservationMap.get(listingKey));
+                        })
+                        .join('');
                     clearCountdowns();
                     activateCountdowns(container);
                 }
