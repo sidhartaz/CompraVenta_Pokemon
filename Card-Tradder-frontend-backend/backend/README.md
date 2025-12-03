@@ -70,8 +70,8 @@ docker compose up --build
 
 - Cada comprador puede generar **máximo 7 órdenes o reservas por semana** (excluye canceladas). Si supera el límite, `/api/orders` responde con 400.
 - Las publicaciones rechazadas deben incluir `rejectionReason`; el admin debe enviarla al usar `PATCH /api/admin/publications/:id/status` con `status="rechazada"`.
-- Las órdenes en estado `reservada` se auto-cancelan tras 24 horas sin confirmación de pago; el historial y las notificaciones de la orden reflejan la caducidad y el comprador recibe aviso.
-- Al crear una reserva, la publicación queda marcada como **no disponible** y expone `reservedUntil` para mostrar el contador de 24 horas en el frontend; si la reserva se cancela manual o automáticamente, la disponibilidad se restablece.
+- Las órdenes en estado `reservada` se auto-cancelan tras 24 horas sin confirmación de pago; el historial y las notificaciones de la orden reflejan la caducidad y el comprador recibe aviso. Las reservas nuevas quedan en `pendiente` hasta que el vendedor/admin las apruebe.
+- Al crear una reserva, la publicación queda marcada como **no disponible** y expone `reservedUntil` una vez aprobada para mostrar el contador de 24 horas en el frontend; si la reserva se cancela manual o automáticamente, la disponibilidad se restablece.
 - Cuando un vendedor marca una orden como `pagada` o `cancelada`, el sistema agrega una notificación para el comprador (campo `notifications`).
 - Solo el rol `cliente` puede crear reservas; si otro rol lo intenta, `POST /api/orders` responde con 403.
 
@@ -79,7 +79,7 @@ docker compose up --build
 
 - **Crear orden o reserva**: `POST /api/orders` con `listingId` y `type` (`compra` o `reserva`).
   - `type=compra` → estado inicial `pendiente`.
-  - `type=reserva` → estado inicial `reservada`.
+  - `type=reserva` → estado inicial `pendiente` (requiere aprobación de vendedor/admin para pasar a `reservada`).
   - Al crear una reserva, se agrega una notificación dirigida al vendedor en el campo `notifications` de la orden.
 - **Consultar mis órdenes**: `GET /api/orders`
   - Admin: todas las órdenes.

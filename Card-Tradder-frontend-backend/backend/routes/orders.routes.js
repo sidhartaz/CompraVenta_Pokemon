@@ -106,19 +106,16 @@ router.post('/', authRequired, async (req, res) => {
         return res.status(400).json({ message: 'Esta publicación ya cuenta con una reserva activa.' });
       }
     }
-    const initialStatus = normalizedType === 'reserva' ? 'reservada' : 'pendiente';
+    const initialStatus = 'pendiente';
 
     const buyer = await User.findById(req.user.id).select('name');
     const notifications = [];
-    const reservationExpiresAt =
-      normalizedType === 'reserva'
-        ? new Date(Date.now() + DEFAULT_RESERVATION_HOURS * 60 * 60 * 1000)
-        : null;
+    const reservationExpiresAt = null;
 
     if (normalizedType === 'reserva') {
       notifications.push({
         type: 'info',
-        message: `${buyer?.name || 'El cliente'} ha creado una reserva para tu publicación "${listing.name}"`,
+        message: `${buyer?.name || 'El cliente'} ha solicitado una reserva para tu publicación "${listing.name}"`,
         recipient: 'seller',
       });
     }
@@ -134,7 +131,11 @@ router.post('/', authRequired, async (req, res) => {
       history: [
         {
           status: initialStatus,
-          note: note || (normalizedType === 'reserva' ? 'Reserva creada' : 'Orden creada'),
+          note:
+            note ||
+            (normalizedType === 'reserva'
+              ? 'Reserva creada y pendiente de aprobación'
+              : 'Orden creada'),
           changedBy: req.user.id,
         },
       ],
@@ -147,6 +148,7 @@ router.post('/', authRequired, async (req, res) => {
       await markListingReservation(listingId, {
         reservedBy: req.user.id,
         reservedUntil: reservationExpiresAt,
+        isActive: false,
       });
     }
 
@@ -273,6 +275,16 @@ router.patch('/:id/status', authRequired, async (req, res) => {
     }
 
     const sellerNotifyingPayment = isSeller && ['pagada', 'cancelada'].includes(status);
+    const reservationApproved = wasReservation && status === 'reservada' && (isSeller || isAdmin);
+
+    if (reservationApproved) {
+      order.notifications.push({
+        type: 'reservada',
+        message: 'Tu reserva fue aprobada. Tienes 24 horas para confirmar el pago.',
+        recipient: 'buyer',
+      });
+    }
+
     if (sellerNotifyingPayment) {
       order.notifications.push({
         type: status,
