@@ -71,7 +71,7 @@ docker compose up --build
 - Cada comprador puede generar **máximo 7 órdenes o reservas por semana** (excluye canceladas). Si supera el límite, `/api/orders` responde con 400.
 - Las publicaciones rechazadas deben incluir `rejectionReason`; el admin debe enviarla al usar `PATCH /api/admin/publications/:id/status` con `status="rechazada"`.
 - Las órdenes en estado `reservada` se auto-cancelan tras 24 horas sin confirmación de pago; el historial y las notificaciones de la orden reflejan la caducidad y el comprador recibe aviso. Las reservas nuevas quedan en `pendiente` hasta que el vendedor/admin las apruebe.
-- Una publicación con reserva pendiente, aprobada o pagada bloquea nuevas compras o reservas y expone `reservedUntil` una vez aprobada para mostrar el contador de 24 horas en el frontend; si la reserva se cancela manual o automáticamente, la disponibilidad se restablece.
+- Una publicación con reserva pendiente, aprobada o pagada bloquea nuevas compras o reservas y expone `reservedUntil` una vez aprobada para mostrar el contador de 24 horas en el frontend; si la reserva se cancela manual o automáticamente, la disponibilidad se restablece. La publicación permanece visible en el catálogo marcada como reservada en lugar de ocultarse.
 - Cuando un vendedor marca una orden como `pagada` o `cancelada`, el sistema agrega una notificación para el comprador (campo `notifications`).
 - Solo el rol `cliente` puede crear reservas; si otro rol lo intenta, `POST /api/orders` responde con 403.
 

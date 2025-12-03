@@ -70,6 +70,7 @@ Este documento resume un flujo mínimo para validar la API con herramientas como
   - Esperado: estado inicial `pendiente`, `history` indicando creación y una notificación para el vendedor en `notifications`. El vendedor/admin debe aprobar (`status=reservada`) o rechazar (`status=cancelada`).
   - Una publicación solo admite una reserva activa; si ya existe otra reserva no cancelada la API responde `400`.
   - Un intento de compra (`type="compra"`) o nueva reserva sobre una publicación con reserva pendiente/aprobada/pagada también responde `400` indicando que está reservada en este momento.
+  - Las publicaciones con reserva pendiente o aprobada siguen visibles en el catálogo, mostrando `reservedBy`/`reservedUntil` para reflejar el bloqueo sin ocultarlas.
 - **Listar órdenes** (`GET {{baseUrl}}/api/orders`)
   - Admin: todas las órdenes. Vendedor: solo las de sus publicaciones. Cliente: solo sus compras/reservas.
 - **Detalle con historial** (`GET {{baseUrl}}/api/orders/:id`)

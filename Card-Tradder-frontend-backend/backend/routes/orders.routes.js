@@ -310,7 +310,7 @@ router.patch('/:id/status', authRequired, async (req, res) => {
         await markListingReservation(order.listingId, {
           reservedBy: order.buyerId,
           reservedUntil: order.reservationExpiresAt,
-          isActive: false,
+          isActive: true,
         });
       }
     }
