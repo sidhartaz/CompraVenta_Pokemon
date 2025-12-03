@@ -3,13 +3,13 @@ version: "3.9"
 services:
   api:
     build:
-      context: ./Card-Tradder-frontend-backend/backend
+      context: .
       dockerfile: Dockerfile
     container_name: cardtradder-api
     ports:
       - "3000:3000"
     env_file:
-      - ./Card-Tradder-frontend-backend/backend/.env
+      - ./.env
     environment:
       # Sobrescribimos para que use el contenedor "mongo"
       MONGO_URI: mongodb://mongo:27017/cardtrader
