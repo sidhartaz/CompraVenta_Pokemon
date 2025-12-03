@@ -1233,8 +1233,21 @@
                     const listingKey = order.listingId?._id || order.listingId;
                     const normalizedKey = listingKey ? String(listingKey) : null;
 
-                    if (normalizedKey && !sellerReservationMap.has(normalizedKey)) {
-                        sellerReservationMap.set(normalizedKey, order);
+                    if (normalizedKey) {
+                        const existing = sellerReservationMap.get(normalizedKey);
+                        const existingDate = existing ? new Date(existing.createdAt || existing.updatedAt || 0).getTime() : 0;
+                        const currentDate = new Date(order.createdAt || order.updatedAt || 0).getTime();
+                        const existingActive = existing && ['pendiente', 'reservada'].includes(existing.status);
+                        const currentActive = ['pendiente', 'reservada'].includes(order.status);
+
+                        const shouldReplace =
+                            !existing ||
+                            (currentActive && !existingActive) ||
+                            currentDate > existingDate;
+
+                        if (shouldReplace) {
+                            sellerReservationMap.set(normalizedKey, order);
+                        }
                     }
 
                     (order.notifications || []).forEach(note => {

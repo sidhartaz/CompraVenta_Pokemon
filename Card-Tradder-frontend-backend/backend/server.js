@@ -397,6 +397,8 @@ app.get('/api/listings/:id/contact', authRequired, async (req, res) => {
     const isSeller = listing.sellerId?.toString() === req.user.id;
     const isAdmin = req.user.role === 'admin';
 
+    const isReservedByUser = listing.reservedBy?.toString() === req.user.id;
+
     const hasActiveReservation = await Order.exists({
       listingId: id,
       buyerId: req.user.id,
@@ -404,19 +406,26 @@ app.get('/api/listings/:id/contact', authRequired, async (req, res) => {
       status: { $in: ['pendiente', 'reservada', 'pagada'] },
     });
 
-    if (!isSeller && !isAdmin && !hasActiveReservation) {
+    if (!isSeller && !isAdmin && !hasActiveReservation && !isReservedByUser) {
       return res
         .status(403)
         .json({ message: 'Solo el comprador con una reserva activa puede ver el contacto del vendedor.' });
     }
 
-    if (!listing.contactWhatsapp) {
+    let contactWhatsapp = listing.contactWhatsapp;
+
+    if (!contactWhatsapp && listing.sellerId) {
+      const seller = await User.findById(listing.sellerId).select('contactWhatsapp').lean();
+      contactWhatsapp = seller?.contactWhatsapp;
+    }
+
+    if (!contactWhatsapp) {
       return res
         .status(404)
         .json({ message: 'El vendedor aún no ha agregado un número de WhatsApp para esta publicación.' });
     }
 
-    return res.json({ contactWhatsapp: listing.contactWhatsapp });
+    return res.json({ contactWhatsapp });
   } catch (error) {
     console.error('Error en GET /api/listings/:id/contact:', error);
     return res.status(500).json({ message: 'Error al obtener el contacto de la publicación' });

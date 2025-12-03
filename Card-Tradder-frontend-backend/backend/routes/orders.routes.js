@@ -175,13 +175,6 @@ router.post('/', authRequired, async (req, res) => {
       reservationExpiresAt,
     });
 
-    if (normalizedType === 'reserva') {
-      await markListingReservation(listingId, {
-        reservedBy: req.user.id,
-        reservedUntil: reservationExpiresAt,
-      });
-    }
-
     await order.populate([
       { path: 'buyerId', select: 'name email role' },
       { path: 'sellerId', select: 'name email role' },
