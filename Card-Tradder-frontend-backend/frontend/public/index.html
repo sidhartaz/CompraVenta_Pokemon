@@ -663,6 +663,29 @@
             return !!reservedOwner && !!userId && reservedOwner === userId;
         }
 
+        function hasActiveReservationForCurrentUser(listing) {
+            const listingId = getIdValue(listing?._id || listing?.id || listing);
+            const userId = getCurrentUserId();
+            if (!listingId || !userId) return false;
+
+            const activeReservationStatuses = ['pendiente', 'reservada', 'pagada'];
+
+            return historyOrdersCache.some(order => {
+                const orderListingId = getIdValue(order?.listingId?._id || order?.listingId);
+                const buyerId = getIdValue(order?.buyerId);
+                return (
+                    order.type === 'reserva'
+                    && activeReservationStatuses.includes(order.status)
+                    && buyerId === userId
+                    && orderListingId === listingId
+                );
+            });
+        }
+
+        function canCurrentUserSeeContact(listing) {
+            return isReservedByCurrentUser(listing) || hasActiveReservationForCurrentUser(listing);
+        }
+
         function activateCountdowns(root = document) {
             const timers = root.querySelectorAll('[data-expires-at]');
             timers.forEach((timerEl) => {
@@ -718,7 +741,7 @@
             const listingId = listing._id || listing.id;
             if (!listingId) return '';
 
-            if (isReservedByCurrentUser(listing)) {
+            if (canCurrentUserSeeContact(listing)) {
                 return `
                     <div class="contact-box" id="contact-box-${listingId}">
                         <p class="subtext">Solo tú puedes ver el WhatsApp del vendedor gracias a tu reserva.</p>
@@ -2177,8 +2200,10 @@
                 if (res.ok) {
                     alert(`Orden creada con estado ${data.order.status}. Revisa tu historial.`);
                     if (type === 'reserva') {
+                        await loadOrderHistory();
                         loadPublicationsBoard();
                         loadSellerListings();
+                        showListingDetail(listingId, '');
                     }
                 } else {
                     alert('❌ Error: ' + (data.message || 'No se pudo crear la orden'));
