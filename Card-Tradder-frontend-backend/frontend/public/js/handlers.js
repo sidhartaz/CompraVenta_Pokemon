@@ -64,13 +64,24 @@
                     body: JSON.stringify({ email, password })
                 });
 
-                const data = await res.json();
+                let data = null;
 
-                if(res.ok) {
-                    persistSession(data.token, data.user);
-                    enterApp(data.user);
+                try {
+                    data = await res.json();
+                } catch (parseError) {
+                    console.warn('No se pudo interpretar la respuesta de /api/login', parseError);
+                }
+
+                if (res.ok) {
+                    if (data?.token && data?.user) {
+                        persistSession(data.token, data.user);
+                        enterApp(data.user);
+                    } else {
+                        alert('❌ Error: Respuesta inválida del servidor. Intenta nuevamente.');
+                    }
                 } else {
-                    alert('❌ Error: ' + data.message);
+                    const message = data?.message || data?.error || res.statusText || 'Error del servidor';
+                    alert('❌ Error: ' + message);
                 }
             } catch (error) {
                 console.error(error);
