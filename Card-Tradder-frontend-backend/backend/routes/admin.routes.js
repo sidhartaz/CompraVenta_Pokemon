@@ -65,7 +65,16 @@ router.get('/publications', authRequired, requireRole('admin'), async (req, res)
       .populate('sellerId', 'name email role')
       .lean();
 
-    res.json({ listings });
+    const cardIds = [...new Set(listings.map((lst) => lst.cardId).filter(Boolean))];
+    const cards = await require('../models/Card').find({ id: { $in: cardIds } }).lean();
+    const cardMap = new Map(cards.map((card) => [card.id, card]));
+
+    const enriched = listings.map((lst) => ({
+      ...lst,
+      card: cardMap.get(lst.cardId) || null,
+    }));
+
+    res.json({ listings: enriched });
   } catch (err) {
     res.status(500).json({ message: 'Error cargando publicaciones' });
   }
@@ -74,16 +83,23 @@ router.get('/publications', authRequired, requireRole('admin'), async (req, res)
 // Cambiar estado de una publicación (aprobar / rechazar)
 router.patch('/publications/:id/status', authRequired, requireRole('admin'), async (req, res) => {
   try {
-    const { status } = req.body; // 'aprobada' | 'rechazada'
+    const { status, rejectionReason } = req.body; // 'aprobada' | 'rechazada'
     const validStatuses = ['pendiente', 'aprobada', 'rechazada'];
 
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Estado inválido' });
     }
 
+    if (status === 'rechazada' && !rejectionReason) {
+      return res.status(400).json({ message: 'Debes indicar el motivo de rechazo' });
+    }
+
+    const update = { status };
+    update.rejectionReason = status === 'rechazada' ? rejectionReason : null;
+
     const listing = await Listing.findByIdAndUpdate(
       req.params.id,
-      { $set: { status } },
+      { $set: update },
       { new: true }
     ).populate('sellerId', 'name email role');
 

@@ -6,6 +6,7 @@ const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
 const adminRoutes = require('./routes/admin.routes');
 const orderRoutes = require('./routes/orders.routes');
+const { expireOldReservations } = require('./utils/reservations');
 
 const { authRequired, requireRole } = require('./middlewares/auth');
 const { client: redisClient, connectRedis } = require('./redisClient');
@@ -18,19 +19,55 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- 1. MIDDLEWARES ---
-app.use(express.json());                          // Para JSON (Postman, fetch, etc.)
-app.use(express.urlencoded({ extended: true }));  // Por si envías formularios
+app.use(express.json({ limit: '5mb' }));                          // Para JSON (Postman, fetch, etc.)
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));  // Por si envías formularios
 app.use(express.static(path.join(__dirname, '..', 'frontend', 'public')));
 
 // --- 2. IMPORTAR MODELOS ---
 const User = require('./models/User');
 const Card = require('./models/Card');
 const Listing = require('./models/Listing');
+const Order = require('./models/Order');
 
 // --- 3. CONEXIÓN A BASE DE DATOS ---
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/cardtrader';
 
-mongoose
+function slugifyBase(text) {
+  return text
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
+async function generateUniqueSlug(name, excludeId = null) {
+  const base = slugifyBase(name) || 'publicacion';
+  let candidate = base;
+  let suffix = 0;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const existing = await Listing.findOne({
+      slug: candidate,
+      ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+    })
+      .select('_id')
+      .lean();
+
+    if (!existing) {
+      return candidate;
+    }
+
+    suffix += 1;
+    candidate = `${base}-${suffix}`;
+  }
+}
+
+const mongoConnection = mongoose
   .connect(mongoUri)
   .then(() => console.log('✅ Base de Datos MongoDB conectada'))
   .catch((err) => {
@@ -142,11 +179,27 @@ app.post('/api/login', async (req, res) => {
 // --- 5. ENDPOINTS PROTEGIDOS DE EJEMPLO (para probar JWT + ROLES) ---
 
 // Cualquier usuario autenticado (cliente o vendedor)
-app.get('/api/me', authRequired, (req, res) => {
-  res.json({
-    message: 'Usuario autenticado',
-    user: req.user, // { id, role, iat, exp }
-  });
+app.get('/api/me', authRequired, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('name email role');
+
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    return res.json({
+      message: 'Usuario autenticado',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error('Error en GET /api/me:', err);
+    return res.status(500).json({ message: 'Error al recuperar el usuario' });
+  }
 });
 
 // Solo administradores (rol "admin") pueden acceder
@@ -158,10 +211,12 @@ app.get('/api/admin/ventas', authRequired, requireRole('admin'), (req, res) => {
 
 // --- 6. CRUD LISTINGS (recurso principal) ---
 
-// Obtener todas las publicaciones
+// Obtener todas las publicaciones aprobadas y activas (catálogo)
 app.get('/api/listings', async (req, res) => {
   try {
-    const filter = {};
+    await expireOldReservations(Order, Listing);
+
+    const filter = { status: 'aprobada', isActive: true };
     if (req.query.status) {
       filter.status = req.query.status;
     }
@@ -170,9 +225,72 @@ app.get('/api/listings', async (req, res) => {
       .populate('sellerId', 'name email role')
       .lean();
 
-    return res.json(listings);
+    const cardIds = [...new Set(listings.map((lst) => lst.cardId).filter(Boolean))];
+    const cards = await Card.find({ id: { $in: cardIds } }).lean();
+    const cardMap = new Map(cards.map((card) => [card.id, card]));
+
+    const enriched = listings.map((lst) => ({
+      ...lst,
+      card: cardMap.get(lst.cardId) || null,
+    }));
+
+    return res.json(enriched);
   } catch (error) {
     console.error('Error en GET /api/listings:', error);
+    return res.status(500).json({ message: 'Error del servidor' });
+  }
+});
+
+// Obtener todas las publicaciones del vendedor (incluyendo inactivas o reservadas)
+app.get('/api/listings/mine', authRequired, requireRole('vendedor'), async (req, res) => {
+  try {
+    await expireOldReservations(Order, Listing);
+
+    const listings = await Listing.find({ sellerId: req.user.id })
+      .sort({ createdAt: -1 })
+      .populate('sellerId', 'name email role')
+      .lean();
+
+    const cardIds = [...new Set(listings.map((lst) => lst.cardId).filter(Boolean))];
+    const cards = await Card.find({ id: { $in: cardIds } }).lean();
+    const cardMap = new Map(cards.map((card) => [card.id, card]));
+
+    const enriched = listings.map((lst) => ({
+      ...lst,
+      card: cardMap.get(lst.cardId) || null,
+    }));
+
+    return res.json({ listings: enriched });
+  } catch (error) {
+    console.error('Error en GET /api/listings/mine:', error);
+    return res.status(500).json({ message: 'Error del servidor' });
+  }
+});
+
+// Obtener la publicación destacada por búsquedas
+app.get('/api/listings/featured', async (req, res) => {
+  try {
+    await expireOldReservations(Order, Listing);
+
+    const featured = await Listing.findOne({ status: 'aprobada', isActive: true })
+      .sort({ searchCount: -1, createdAt: -1 })
+      .populate('sellerId', 'name email role')
+      .lean();
+
+    if (!featured) {
+      return res.json({ listing: null });
+    }
+
+    const card = featured.cardId ? await Card.findOne({ id: featured.cardId }).lean() : null;
+
+    return res.json({
+      listing: {
+        ...featured,
+        card,
+      },
+    });
+  } catch (error) {
+    console.error('Error en GET /api/listings/featured:', error);
     return res.status(500).json({ message: 'Error del servidor' });
   }
 });
@@ -180,12 +298,22 @@ app.get('/api/listings', async (req, res) => {
 // Obtener una publicación por ID
 app.get('/api/listings/:id', async (req, res) => {
   try {
+    await expireOldReservations(Order, Listing);
+
     const listing = await Listing.findById(req.params.id)
       .populate('sellerId', 'name email role')
       .lean();
 
     if (!listing) {
       return res.status(404).json({ message: 'Listing no encontrado' });
+    }
+
+    if (listing.status !== 'aprobada') {
+      return res.status(403).json({ message: 'La publicación aún no está aprobada.' });
+    }
+
+    if (!listing.isActive) {
+      return res.status(403).json({ message: 'La publicación no está disponible.' });
     }
 
     return res.json(listing);
@@ -198,16 +326,22 @@ app.get('/api/listings/:id', async (req, res) => {
 // Crear una publicación (solo vendedores)
 app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res) => {
   try {
-    const { cardId, price, condition } = req.body;
+    const { cardId, price, condition, description, imageData, name } = req.body;
 
-    if (!cardId || !price || !condition) {
-      return res.status(400).json({ message: 'Faltan datos: cardId, price, condition' });
+    if (!name || price === undefined || !condition) {
+      return res.status(400).json({ message: 'Faltan datos: name, price, condition' });
     }
+
+    const slug = await generateUniqueSlug(name);
 
     const newListing = new Listing({
       cardId,
+      name,
+      slug,
       price,
       condition,
+      description,
+      imageData,
       sellerId: req.user.id, // del token JWT
       status: 'pendiente',
     });
@@ -227,7 +361,7 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
 // Actualizar una publicación (solo vendedores dueños de la publicación)
 app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, res) => {
   try {
-    const { price, condition } = req.body;
+    const { price, condition, description, imageData, name } = req.body;
 
     const listing = await Listing.findById(req.params.id);
     if (!listing) {
@@ -240,6 +374,13 @@ app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, 
 
     if (price !== undefined) listing.price = price;
     if (condition !== undefined) listing.condition = condition;
+    if (description !== undefined) listing.description = description;
+    if (imageData !== undefined) listing.imageData = imageData;
+    if (req.body.cardId !== undefined) listing.cardId = req.body.cardId || undefined;
+    if (name !== undefined) {
+      listing.name = name;
+      listing.slug = await generateUniqueSlug(name, listing._id);
+    }
 
     await listing.save();
 
@@ -265,6 +406,7 @@ app.delete('/api/listings/:id', authRequired, requireRole('vendedor'), async (re
       return res.status(403).json({ message: 'No puedes eliminar publicaciones de otros vendedores' });
     }
 
+    await Order.deleteMany({ listingId: listing._id });
     await listing.deleteOne();
 
     return res.json({ message: 'Listing eliminado con éxito' });
@@ -312,37 +454,94 @@ app.get('/api/cards/search', cacheCardsSearch, async (req, res) => {
       return res.json({ results: [] });
     }
 
-    // Buscar cartas cuyo nombre contenga el texto (insensible a mayúsculas)
-    const cards = await Card.find({
-      name: { $regex: query, $options: 'i' },
+    const regex = { $regex: query, $options: 'i' };
+
+    const cards = await Card.find({ name: regex }).limit(20).lean();
+    const cardIds = cards.map((card) => card.id);
+
+    const listingsForCards = await Listing.find({
+      status: 'aprobada',
+      cardId: { $in: cardIds },
     })
-      .limit(20)
+      .populate('sellerId', 'name email role')
       .lean();
 
-    if (!cards.length) {
-      return res.json({ results: [] });
-    }
-
-    const results = [];
+    const resultsMap = new Map();
 
     for (const card of cards) {
-      const listings = await Listing.find({ cardId: card.id, status: 'aprobada' })
-        .populate('sellerId', 'name email role')
-        .lean();
+      resultsMap.set(card.id, { card, listings: [] });
+    }
 
-      const formattedListings = listings.map((lst) => ({
+    for (const lst of listingsForCards) {
+      const key = lst.cardId || `listing-${lst._id}`;
+      if (!resultsMap.has(key)) {
+        resultsMap.set(key, { card: null, listings: [] });
+      }
+      const entry = resultsMap.get(key);
+      entry.listings.push({
+        id: lst._id,
         price: lst.price,
         condition: lst.condition,
         seller: lst.sellerId,
-      }));
-
-      results.push({
-        card,
-        listings: formattedListings,
+        imageData: lst.imageData,
+        name: lst.name,
+        cardId: lst.cardId,
+        slug: lst.slug,
       });
     }
 
-    const responseBody = { results };
+    const listingsByName = await Listing.find({ status: 'aprobada', name: regex })
+      .populate('sellerId', 'name email role')
+      .lean();
+
+    const searchListingIds = new Set([
+      ...listingsForCards.map((lst) => lst._id.toString()),
+      ...listingsByName.map((lst) => lst._id.toString()),
+    ]);
+
+    const extraCardIds = listingsByName
+      .map((lst) => lst.cardId)
+      .filter((id) => id && !resultsMap.has(id));
+
+    if (extraCardIds.length) {
+      const extraCards = await Card.find({ id: { $in: extraCardIds } }).lean();
+      for (const card of extraCards) {
+        if (!resultsMap.has(card.id)) {
+          resultsMap.set(card.id, { card, listings: [] });
+        }
+      }
+    }
+
+    for (const lst of listingsByName) {
+      const key = lst.cardId || `listing-${lst._id}`;
+      if (!resultsMap.has(key)) {
+        resultsMap.set(key, { card: null, listings: [] });
+      }
+      const entry = resultsMap.get(key);
+      entry.listings.push({
+        id: lst._id,
+        price: lst.price,
+        condition: lst.condition,
+        seller: lst.sellerId,
+        imageData: lst.imageData,
+        name: lst.name,
+        cardId: lst.cardId,
+        slug: lst.slug,
+      });
+    }
+
+    const responseBody = { results: Array.from(resultsMap.values()) };
+
+    if (searchListingIds.size) {
+      try {
+        await Listing.updateMany(
+          { _id: { $in: Array.from(searchListingIds) } },
+          { $inc: { searchCount: 1 } }
+        );
+      } catch (err) {
+        console.error('No se pudo incrementar searchCount:', err.message);
+      }
+    }
 
     // Guardar en cache para próximas llamadas
     if (res.locals.cacheKey) {
@@ -395,14 +594,18 @@ app.get('/api/cards/:id', async (req, res) => {
       return res.json({ card: null, listings: [] });
     }
 
-    const listings = await Listing.find({ cardId, status: 'aprobada' })
+    const listings = await Listing.find({ cardId, status: 'aprobada', isActive: true })
       .populate('sellerId', 'name email role')
       .lean();
 
     const formattedListings = listings.map((lst) => ({
+      id: lst._id,
       price: lst.price,
       condition: lst.condition,
       seller: lst.sellerId,
+      imageData: lst.imageData,
+      status: lst.status,
+      isActive: lst.isActive,
     }));
 
     return res.json({
@@ -422,6 +625,10 @@ app.get(/(.*)/, (req, res) => {
 });
 
 // --- 10. INICIAR SERVIDOR ---
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+  });
+}
+
+module.exports = { app, mongoConnection };
