@@ -288,8 +288,13 @@ router.patch('/:id/status', authRequired, async (req, res) => {
     const isBuyer = order.buyerId.toString() === req.user.id;
     const isAdmin = req.user.role === 'admin';
 
-    // Solo el vendedor o admin pueden marcar pagada/reservada; comprador puede cancelar la suya
-    if (!isAdmin && !isSeller) {
+    // Solo el vendedor puede aprobar la reserva; admin puede gestionar otros estados
+    if (status === 'reservada' && !isSeller) {
+      return res.status(403).json({ message: 'Solo el vendedor puede aprobar una reserva.' });
+    }
+
+    // Comprador solo puede cancelar su propia orden
+    if (!isSeller && !isAdmin) {
       if (!(isBuyer && status === 'cancelada')) {
         return res.status(403).json({ message: 'No tienes permiso para cambiar este estado' });
       }
@@ -309,7 +314,7 @@ router.patch('/:id/status', authRequired, async (req, res) => {
     }
 
     const sellerNotifyingPayment = isSeller && ['pagada', 'cancelada'].includes(status);
-    const reservationApproved = wasReservation && status === 'reservada' && (isSeller || isAdmin);
+    const reservationApproved = wasReservation && status === 'reservada' && isSeller;
 
     if (reservationApproved) {
       order.notifications.push({

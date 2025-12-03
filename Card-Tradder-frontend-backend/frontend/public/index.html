@@ -512,6 +512,21 @@
         </div>
     </div>
 
+    <!-- MODAL DETALLE DE ORDEN -->
+    <div class="modal-overlay" id="orderDetailModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>Detalle de la orden</h2>
+                <button class="btn-close" onclick="toggleOrderDetail(false)">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="order-detail-body">
+                <p class="subtext">Selecciona un pedido para ver su detalle.</p>
+            </div>
+        </div>
+    </div>
+
     <!-- ======================================================= -->
     <!-- LÓGICA JAVASCRIPT                                       -->
     <!-- ======================================================= -->
@@ -522,6 +537,7 @@
         let currentUser = null;
         let listingImageBase64 = null;
         let historyOrdersCache = [];
+        let historyLoadPromise = null;
         let historyTypeFilter = '';
         let countdownIntervals = [];
         let sellerListingsCache = [];
@@ -980,6 +996,15 @@
                 return;
             }
 
+            modal.classList.toggle('active', targetState);
+        }
+
+        function toggleOrderDetail(forceOpen = null) {
+            const modal = document.getElementById('orderDetailModal');
+            if (!modal) return;
+
+            const isOpen = modal.classList.contains('active');
+            const targetState = forceOpen === null ? !isOpen : !!forceOpen;
             modal.classList.toggle('active', targetState);
         }
 
@@ -1842,6 +1867,9 @@
                     <div class="history-steps">
                         ${historySteps || '<p class="subtext">Sin eventos registrados.</p>'}
                     </div>
+                    <div class="history-actions">
+                        <button class="btn-secondary ghost" onclick="showOrderDetail('${order._id || order.id}')">Ver detalle</button>
+                    </div>
                 </div>
             `;
         }
@@ -1907,27 +1935,106 @@
             const status = document.getElementById('history-status-filter')?.value;
             const query = status ? `?status=${status}` : '';
 
+            historyLoadPromise = (async () => {
+                try {
+                    const res = await apiFetch('/api/orders' + query);
+                    const data = await res.json();
+                    if (!res.ok) {
+                        container.innerHTML = `<p>Error: ${data.message || 'No se pudo cargar el historial'}</p>`;
+                        return [];
+                    }
+
+                    historyOrdersCache = data.orders || [];
+                    updateHistorySummary(historyOrdersCache);
+
+                    const filtered = historyTypeFilter
+                        ? historyOrdersCache.filter(order => order.type === historyTypeFilter)
+                        : historyOrdersCache;
+
+                    renderHistoryList(filtered);
+                    return historyOrdersCache;
+                } catch (error) {
+                    console.error(error);
+                    container.innerHTML = '<p>Error al cargar el historial.</p>';
+                    historyOrdersCache = [];
+                    updateHistorySummary([]);
+                    return [];
+                }
+            })();
+
+            return historyLoadPromise;
+        }
+
+        async function ensureHistoryLoaded() {
+            if (!authToken) return [];
+            if (!historyLoadPromise) {
+                historyLoadPromise = loadOrderHistory();
+            }
+
             try {
-                const res = await apiFetch('/api/orders' + query);
+                return await historyLoadPromise;
+            } catch (error) {
+                console.error('No se pudo precargar el historial', error);
+                return historyOrdersCache;
+            }
+        }
+
+        async function showOrderDetail(orderId) {
+            if (!orderId) return;
+            if (!authToken) {
+                alert('Inicia sesión para ver el detalle de la orden.');
+                return;
+            }
+
+            await ensureHistoryLoaded();
+
+            const body = document.getElementById('order-detail-body');
+            if (body) {
+                body.innerHTML = '<p>Cargando detalle...</p>';
+            }
+
+            toggleOrderDetail(true);
+
+            try {
+                const res = await apiFetch(`/api/orders/${orderId}`);
                 const data = await res.json();
-                if (!res.ok) {
-                    container.innerHTML = `<p>Error: ${data.message || 'No se pudo cargar el historial'}</p>`;
+
+                if (!res.ok || !data.order) {
+                    body.innerHTML = `<p>${data.message || 'No se pudo cargar el pedido.'}</p>`;
                     return;
                 }
 
-                historyOrdersCache = data.orders || [];
-                updateHistorySummary(historyOrdersCache);
+                const order = data.order;
+                const steps = (order.history || []).map(step => `
+                    <div class="history-step">
+                        <div class="history-step-header">
+                            ${renderStatusBadge(step.status)}
+                            <span class="history-step-date">${formatDate(step.changedAt)}</span>
+                        </div>
+                        <div class="history-step-body">
+                            <p class="history-note">${step.note || ''}</p>
+                            <p class="history-user">${step.changedBy?.name || 'Sistema'}</p>
+                        </div>
+                    </div>
+                `).join('');
 
-                const filtered = historyTypeFilter
-                    ? historyOrdersCache.filter(order => order.type === historyTypeFilter)
-                    : historyOrdersCache;
+                const contactCta = order.listingId ? renderContactCta(order.listingId, order.card?.name || order.listingId.cardId) : '';
 
-                renderHistoryList(filtered);
+                body.innerHTML = `
+                    <div class="order-detail">
+                        <p><strong>Tipo:</strong> ${order.type === 'reserva' ? 'Reserva' : 'Compra'}</p>
+                        <p><strong>Estado:</strong> ${order.status}</p>
+                        <p><strong>Precio:</strong> $${order.total || order.listingId?.price || ''}</p>
+                        <p><strong>Publicación:</strong> ${order.listingId?.name || order.card?.name || order.listingId?.cardId || 'Sin nombre'}</p>
+                        <p><strong>Vendedor:</strong> ${order.sellerId?.name || 'No disponible'} (${order.sellerId?.email || ''})</p>
+                        <p><strong>Comprador:</strong> ${order.buyerId?.name || 'No disponible'} (${order.buyerId?.email || ''})</p>
+                        <div class="history-steps">${steps || '<p class="subtext">Sin eventos registrados.</p>'}</div>
+                        ${contactCta}
+                    </div>
+                `;
             } catch (error) {
                 console.error(error);
-                container.innerHTML = '<p>Error al cargar el historial.</p>';
-                historyOrdersCache = [];
-                updateHistorySummary([]);
+                body.innerHTML = '<p>Error al cargar el detalle de la orden.</p>';
             }
         }
 
@@ -1995,6 +2102,8 @@
             container.innerHTML = "<p>Cargando publicación...</p>";
 
             try {
+                await ensureHistoryLoaded();
+
                 const [listingRes, cardRes] = await Promise.all([
                     fetch(`/api/listings/${listingId}`),
                     cardId ? fetch(`/api/cards/${cardId}`) : Promise.resolve({ ok: false }),
