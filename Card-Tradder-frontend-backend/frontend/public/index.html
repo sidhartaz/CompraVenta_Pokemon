@@ -136,7 +136,9 @@
                 <a href="#" class="menu-item seller-only" onclick="toggleModal()">
                     <i class="fa-solid fa-plus-circle"></i> Publicar Carta
                 </a>
-                <a href="#" class="menu-item"><i class="fa-solid fa-handshake"></i> Intercambios</a>
+                <a href="#" class="menu-item" data-view="reservations" onclick="showView('reservations', this)">
+                    <i class="fa-solid fa-calendar-check"></i> Reservas
+                </a>
                 <a href="#" class="menu-item" onclick="showView('history', this); loadOrderHistory();"><i class="fa-solid fa-clock-rotate-left"></i> Historial</a>
                 
                 <div class="menu-separator">CUENTA</div>
@@ -236,6 +238,9 @@
                                     <span class="badge badge-success" id="profile-role">Vendedor</span>
                                 </div>
                                 <div class="profile-detail">
+                                    <label>WhatsApp</label><p id="profile-whatsapp" class="subtext">No configurado</p>
+                                </div>
+                                <div class="profile-detail">
                                     <label>Reputación</label>
                                     <div class="stars">
                                         <i class="fa-solid fa-star"></i>
@@ -245,7 +250,7 @@
                                         <i class="fa-solid fa-star-half-stroke"></i>
                                     </div>
                                 </div>
-                                <button class="btn-block">Editar Cliente</button>
+                                <button class="btn-block" onclick="openProfileModal()">Editar perfil</button>
                             </div>
                         </div>
                     </div>
@@ -371,6 +376,24 @@
                 </div>
             </div>
 
+            <!-- VISTA RESERVAS (CLIENTE) -->
+            <div id="view-reservations" class="view-section hidden">
+                <div class="card">
+                    <div class="card-header reservations-header">
+                        <div>
+                            <h3>Mis reservas</h3>
+                            <p class="subtext">Encuentra rápidamente las publicaciones que tienes reservadas.</p>
+                        </div>
+                        <div class="pill-counter" id="reservations-count">0</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="reservations-grid" id="client-reservations-list">
+                            <p class="subtext">Inicia sesión como cliente para ver tus reservas activas.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- VISTA PUBLICACIONES -->
             <div id="view-publications" class="view-section hidden">
                 <div class="card">
@@ -462,6 +485,11 @@
                         <textarea class="form-input" id="listing-description" rows="3" placeholder="Notas opcionales sobre la carta"></textarea>
                     </div>
                     <div class="form-group">
+                        <label>WhatsApp del vendedor (solo visible para reservas)</label>
+                        <input type="text" class="form-input" id="listing-whatsapp" placeholder="Ej: +56912345678">
+                        <small>Comparte un número donde puedas coordinar con el comprador cuando tenga una reserva activa.</small>
+                    </div>
+                    <div class="form-group">
                         <label>Imagen de la carta (opcional)</label>
                         <input type="file" class="form-input" accept="image/*" id="listing-image" onchange="handleListingImageChange(event)">
                         <small>La imagen se guardará en la base de datos junto con la publicación.</small>
@@ -471,6 +499,50 @@
                         <button type="submit" class="btn-primary" id="publish-submit-label">Enviar a Revisión</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PERFIL -->
+    <div class="modal-overlay" id="modalProfile">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>Editar perfil</h2>
+                <button class="btn-close" onclick="toggleProfileModal(false)">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="profile-form" onsubmit="handleProfileSubmit(event)">
+                    <div class="form-group">
+                        <label>Nombre completo</label>
+                        <input type="text" class="form-input" id="profile-edit-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>WhatsApp (solo visible para tus compradores con reserva)</label>
+                        <input type="text" class="form-input" id="profile-edit-whatsapp" placeholder="Ej: +56912345678">
+                        <small>Este número se usa como valor por defecto en tus publicaciones nuevas y solo lo ve quien tiene una reserva activa.</small>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" onclick="toggleProfileModal(false)">Cancelar</button>
+                        <button type="submit" class="btn-primary">Guardar cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DETALLE DE ORDEN -->
+    <div class="modal-overlay" id="orderDetailModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>Detalle de la orden</h2>
+                <button class="btn-close" onclick="toggleOrderDetail(false)">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="order-detail-body">
+                <p class="subtext">Selecciona un pedido para ver su detalle.</p>
             </div>
         </div>
     </div>
@@ -485,12 +557,29 @@
         let currentUser = null;
         let listingImageBase64 = null;
         let historyOrdersCache = [];
+        let historyLoadPromise = null;
         let historyTypeFilter = '';
+        let clientReservationsCache = [];
         let countdownIntervals = [];
         let sellerListingsCache = [];
         let sellerReservationMap = new Map();
         let sellerNotifications = [];
         let editingListingId = null;
+        let listingContactCache = new Map();
+
+        function renderProfileInfo(user) {
+            if (!user) return;
+
+            document.getElementById('profile-name').innerText = user.name || '';
+            document.getElementById('profile-role').innerText = (user.role || '').toUpperCase();
+            document.getElementById('profile-email').innerText = user.email || '';
+
+            const whatsappEl = document.getElementById('profile-whatsapp');
+            if (whatsappEl) {
+                whatsappEl.innerText = user.contactWhatsapp || 'No configurado';
+                whatsappEl.classList.toggle('subtext', !user.contactWhatsapp);
+            }
+        }
 
         function persistSession(token, user) {
             authToken = token;
@@ -512,6 +601,7 @@
             sessionStorage.removeItem(CURRENT_USER_KEY);
             localStorage.removeItem(AUTH_TOKEN_KEY);
             localStorage.removeItem(CURRENT_USER_KEY);
+            listingContactCache = new Map();
         }
 
         function getStoredSession() {
@@ -583,10 +673,63 @@
         }
 
         function isListingReserved(listing) {
-            if (!listing || !listing.reservedUntil) return false;
-            const expiresAt = new Date(listing.reservedUntil).getTime();
-            if (Number.isNaN(expiresAt)) return false;
-            return expiresAt > Date.now();
+            if (!listing) return false;
+            const hasOwner = !!listing.reservedBy;
+            const expiresAt = listing.reservedUntil ? new Date(listing.reservedUntil).getTime() : null;
+
+            if (expiresAt && !Number.isNaN(expiresAt)) {
+                return expiresAt > Date.now();
+            }
+
+            return hasOwner;
+        }
+
+        function getIdValue(value) {
+            if (!value) return null;
+            if (typeof value === 'object' && value._id) return value._id.toString();
+            return value.toString();
+        }
+
+        function getCurrentUserId() {
+            return getIdValue(currentUser?._id || currentUser?.id || currentUser?._id);
+        }
+
+        function isReservedByCurrentUser(listing) {
+            const reservedOwner = getIdValue(listing?.reservedBy);
+            const userId = getCurrentUserId();
+            return !!reservedOwner && !!userId && reservedOwner === userId;
+        }
+
+        function hasActiveReservationForCurrentUser(listing) {
+            const listingId = getIdValue(listing?._id || listing?.id || listing);
+            const userId = getCurrentUserId();
+            if (!listingId || !userId) return false;
+
+            const activeReservationStatuses = ['pendiente', 'reservada', 'pagada'];
+
+            return historyOrdersCache.some(order => {
+                const orderListingId = getIdValue(order?.listingId?._id || order?.listingId);
+                const buyerId = getIdValue(order?.buyerId);
+                return (
+                    order.type === 'reserva'
+                    && activeReservationStatuses.includes(order.status)
+                    && buyerId === userId
+                    && orderListingId === listingId
+                );
+            });
+        }
+
+        function canCurrentUserSeeContact(listing) {
+            return isReservedByCurrentUser(listing) || hasActiveReservationForCurrentUser(listing);
+        }
+
+        function autoRevealContactIfAllowed(listing) {
+            const listingId = getIdValue(listing?._id || listing?.id);
+            if (!listingId) return;
+
+            if (canCurrentUserSeeContact(listing)) {
+                setTimeout(() => revealContact(listingId), 100);
+            }
         }
 
         function activateCountdowns(root = document) {
@@ -640,6 +783,233 @@
             `;
         }
 
+        function renderContactCta(listing, itemLabel = 'esta publicación') {
+            const listingId = listing._id || listing.id;
+            if (!listingId) return '';
+
+            const allowed = canCurrentUserSeeContact(listing);
+            const helper = allowed
+                ? 'Reserva activa detectada, cargaremos el WhatsApp automáticamente.'
+                : 'Solo el comprador con reserva activa podrá ver el contacto.';
+
+            return `
+                <div class="contact-card${allowed ? '' : ' disabled'}" id="contact-box-${listingId}">
+                    <div class="contact-top">
+                        <div class="contact-heading">
+                            <p class="eyebrow">Contacto del vendedor</p>
+                            <h4>${itemLabel}</h4>
+                            <p class="subtext">${helper}</p>
+                        </div>
+                        <div class="contact-chip ${allowed ? 'chip-success' : 'chip-muted'}">
+                            <i class="fa-brands fa-whatsapp"></i>
+                            <span>${allowed ? 'Reserva activa' : 'Reserva requerida'}</span>
+                        </div>
+                    </div>
+
+                    <div class="contact-body">
+                        <div class="contact-compact">
+                            <div class="contact-compact__icon"><i class="fa-solid fa-lock"></i></div>
+                            <div>
+                                <p class="contact-title">WhatsApp protegido</p>
+                                <p class="subtext">Mostraremos el número solo cuando el acceso esté autorizado.</p>
+                            </div>
+                        </div>
+
+                        <div class="contact-display hidden"></div>
+
+                        <div class="contact-actions">
+                            <button class="btn-contact" type="button" onclick="event.stopPropagation(); revealContact('${listingId}')">
+                                <span class="btn-contact__main"><i class="fa-brands fa-whatsapp"></i> Ver contacto</span>
+                                <span class="btn-sub">Se abrirá el chat directo una vez recuperemos el número.</span>
+                            </button>
+                            <p class="contact-error subtext"></p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDetailContactCta(listing, itemLabel = 'esta publicación') {
+            const listingId = listing._id || listing.id;
+            if (!listingId) return '';
+
+            return `
+                <div class="contact-card detail-contact" id="contact-box-${listingId}">
+                    <div class="detail-contact__header">
+                        <div>
+                            <p class="eyebrow">Contacto WhatsApp</p>
+                            <h4>${itemLabel}</h4>
+                            <p class="subtext contact-helper">Validando privilegios de reserva...</p>
+                        </div>
+                        <div class="contact-chip chip-muted">
+                            <i class="fa-brands fa-whatsapp"></i><span>Reserva requerida</span>
+                        </div>
+                    </div>
+
+                    <div class="detail-contact__body">
+                        <div class="contact-inline">
+                            <div class="contact-inline__icon"><i class="fa-brands fa-whatsapp"></i></div>
+                            <div>
+                                <p class="contact-title">WhatsApp del vendedor</p>
+                                <p class="contact-number">Cargando contacto...</p>
+                            </div>
+                        </div>
+                        <p class="contact-error subtext"></p>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function revealContact(listingId) {
+            if (!authToken) {
+                alert('Debes iniciar sesión para ver el contacto del vendedor.');
+                return;
+            }
+
+            const normalizedId = getIdValue(listingId);
+            const box = document.getElementById(`contact-box-${normalizedId}`);
+            if (!box) return;
+
+            const errorEl = box.querySelector('.contact-error');
+            const button = box.querySelector('button');
+            const displayEl = box.querySelector('.contact-display');
+            const actionsEl = box.querySelector('.contact-actions');
+
+            if (errorEl) errorEl.textContent = '';
+            if (button) button.disabled = true;
+            if (displayEl) displayEl.classList.add('hidden');
+            box.classList.remove('contact-ready');
+            box.classList.add('contact-loading');
+
+            try {
+                let contact = listingContactCache.get(normalizedId);
+
+                if (!contact) {
+                    const res = await apiFetch(`/api/listings/${normalizedId}/contact`);
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        if (errorEl) errorEl.textContent = data.message || 'No se pudo recuperar el contacto.';
+                        return;
+                    }
+
+                    contact = data.contactWhatsapp;
+                    listingContactCache.set(normalizedId, contact);
+                }
+
+                if (!contact) {
+                    if (errorEl) errorEl.textContent = 'No hay un número de WhatsApp configurado.';
+                    return;
+                }
+
+                const numeric = contact.replace(/[^0-9]/g, '');
+                const whatsappTarget = numeric || contact;
+                const link = `https://wa.me/${whatsappTarget.replace(/^\+/, '')}`;
+
+                box.classList.remove('disabled', 'contact-loading');
+                box.classList.add('contact-ready');
+                if (actionsEl) actionsEl.classList.add('hidden');
+
+                if (displayEl) {
+                    displayEl.innerHTML = `
+                        <div class="contact-display-row">
+                            <div class="contact-number">
+                                <i class="fa-brands fa-whatsapp"></i>
+                                <a href="${link}" target="_blank" rel="noopener noreferrer">${contact}</a>
+                            </div>
+                            <span class="contact-helper">Listo para enviar mensaje por WhatsApp</span>
+                        </div>
+                    `;
+                    displayEl.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error al cargar contacto', error);
+                if (errorEl) errorEl.textContent = 'No se pudo cargar el contacto. Intenta nuevamente.';
+            } finally {
+                if (button) button.disabled = false;
+            }
+        }
+
+        async function hydrateDetailContact(listing) {
+            const listingId = getIdValue(listing?._id || listing?.id);
+            if (!listingId) return;
+
+            const box = document.getElementById(`contact-box-${listingId}`);
+            if (!box) return;
+
+            const errorEl = box.querySelector('.contact-error');
+            const numberEl = box.querySelector('.contact-number');
+            const helperEl = box.querySelector('.contact-helper');
+            const chipEl = box.querySelector('.contact-chip');
+
+            const setChip = (text, variant = 'chip-muted') => {
+                if (!chipEl) return;
+                chipEl.classList.remove('chip-success', 'chip-muted');
+                chipEl.classList.add(variant);
+                chipEl.innerHTML = `<i class="fa-brands fa-whatsapp"></i><span>${text}</span>`;
+            };
+
+            const setNumber = (content) => {
+                if (numberEl) numberEl.innerHTML = content;
+            };
+
+            const setHelper = (text) => {
+                if (helperEl) helperEl.textContent = text;
+            };
+
+            box.classList.remove('contact-ready');
+            setChip('Validando acceso');
+            setHelper('Validando privilegios de reserva...');
+            if (errorEl) errorEl.textContent = '';
+            setNumber('Cargando contacto...');
+
+            if (!authToken) {
+                setNumber('Inicia sesión para ver el contacto');
+                setHelper('Inicia sesión para recuperar el WhatsApp.');
+                setChip('Inicio de sesión requerido');
+                return;
+            }
+
+            try {
+                let contact = listingContactCache.get(listingId);
+
+                if (!contact) {
+                    const res = await apiFetch(`/api/listings/${listingId}/contact`);
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        setHelper('Necesitas una reserva activa para ver el WhatsApp.');
+                        setNumber('No autorizado');
+                        if (errorEl) errorEl.textContent = data.message || 'No se pudo recuperar el contacto.';
+                        return;
+                    }
+
+                    contact = data.contactWhatsapp;
+                    listingContactCache.set(listingId, contact);
+                }
+
+                if (!contact) {
+                    setHelper('El vendedor no ha configurado su WhatsApp.');
+                    setNumber('Sin número configurado');
+                    return;
+                }
+
+                const numeric = contact.replace(/[^0-9]/g, '');
+                const whatsappTarget = numeric || contact;
+                const link = `https://wa.me/${whatsappTarget.replace(/^\+/, '')}`;
+
+                setChip('Contacto disponible', 'chip-success');
+                setHelper('Listo para enviar mensaje por WhatsApp.');
+                setNumber(`<a href="${link}" target="_blank" rel="noopener noreferrer">${contact}</a>`);
+                box.classList.add('contact-ready');
+            } catch (error) {
+                console.error('Error al cargar contacto', error);
+                setHelper('No se pudo cargar el contacto.');
+                setNumber('No disponible');
+                if (errorEl) errorEl.textContent = 'No se pudo cargar el contacto. Intenta nuevamente.';
+            }
+        }
+
         function renderPublicationCard(listing) {
             const card = listing.card || {};
             const seller = listing.sellerId || listing.seller || {};
@@ -685,14 +1055,15 @@
                                 ? `<button class="btn-reserve" onclick="event.stopPropagation(); createOrder('${listingId}','reserva')">Reservar</button>`
                                 : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
                             }
-                            <a class="btn-link" onclick="event.stopPropagation();" href="mailto:${seller.email || ''}?subject=Interés%20en%20${encodeURIComponent(cardName)}" target="_blank" rel="noopener noreferrer">Contactar vendedor</a>
+                            <span class="availability-note">El WhatsApp aparecerá cuando tengas la reserva activa.</span>
                             <button class="btn-secondary ghost" onclick="event.stopPropagation(); showListingDetail('${listingId}','${listing.cardId || ''}')">Ver detalle</button>
                         </div>`
                         : `<div class="publication-actions disabled">
-                            <span class="availability-note">No disponible para compra, reserva ni contacto.</span>
+                            <span class="availability-note">No disponible para compra ni reserva.</span>
                             <button class="btn-secondary ghost" onclick="event.stopPropagation(); showListingDetail('${listingId}','${listing.cardId || ''}')">Ver detalle</button>
                         </div>`
                     }
+                    ${renderContactCta(listing, cardName)}
                 </div>
             `;
         }
@@ -766,6 +1137,11 @@
             document.getElementById('publish-submit-label').innerText = 'Enviar a Revisión';
             listingImageBase64 = null;
             editingListingId = null;
+
+            const whatsappInput = document.getElementById('listing-whatsapp');
+            if (whatsappInput) {
+                whatsappInput.value = currentUser?.contactWhatsapp || '';
+            }
         }
 
         function toggleModal(forceOpen = null) {
@@ -788,9 +1164,33 @@
             modal.classList.toggle('active', targetState);
         }
 
+        function toggleProfileModal(forceOpen = null) {
+            const modal = document.getElementById('modalProfile');
+            if (!modal) return;
+
+            const isOpen = modal.classList.contains('active');
+            const targetState = forceOpen === null ? !isOpen : !!forceOpen;
+
+            if (targetState && !currentUser) {
+                alert('Debes iniciar sesión para editar tu perfil.');
+                return;
+            }
+
+            modal.classList.toggle('active', targetState);
+        }
+
+        function toggleOrderDetail(forceOpen = null) {
+            const modal = document.getElementById('orderDetailModal');
+            if (!modal) return;
+
+            const isOpen = modal.classList.contains('active');
+            const targetState = forceOpen === null ? !isOpen : !!forceOpen;
+            modal.classList.toggle('active', targetState);
+        }
+
         // Mostrar vista principal (usada por el menú)
         function showView(viewName, element) {
-            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-publications', 'view-admin', 'view-history', 'view-card-detail'];
+            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-publications', 'view-admin', 'view-history', 'view-reservations', 'view-card-detail'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -814,6 +1214,7 @@
                 admin: 'Panel de Administración',
                 'card-detail': 'Detalle de Carta',
                 history: 'Historial',
+                reservations: 'Reservas',
             };
             document.getElementById('page-title').textContent = titles[viewName] || 'Card Trader';
 
@@ -826,6 +1227,10 @@
                 loadOrderHistory();
             }
 
+            if (viewName === 'reservations') {
+                loadClientReservations();
+            }
+
             if (viewName === 'publications') {
                 loadPublicationsBoard();
             }
@@ -836,9 +1241,20 @@
             }
         }
 
+        function openProfileModal() {
+            if (!currentUser) {
+                alert('Debes iniciar sesión para editar tu perfil.');
+                return;
+            }
+
+            document.getElementById('profile-edit-name').value = currentUser.name || '';
+            document.getElementById('profile-edit-whatsapp').value = currentUser.contactWhatsapp || '';
+            toggleProfileModal(true);
+        }
+
         // Helper para cambiar de vista desde otras funciones (detalle de carta)
         function showSection(sectionId) {
-            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-publications', 'view-admin', 'view-history', 'view-card-detail'];
+            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-publications', 'view-admin', 'view-history', 'view-reservations', 'view-card-detail'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -872,11 +1288,9 @@
 
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('main-app').classList.remove('hidden');
-            
+
             document.getElementById('user-display-name').innerText = user.name;
-            document.getElementById('profile-name').innerText = user.name;
-            document.getElementById('profile-role').innerText = user.role.toUpperCase();
-            document.getElementById('profile-email').innerText = user.email;
+            renderProfileInfo(user);
 
             // Mostrar/ocultar cosas solo admin
             const adminItems = document.querySelectorAll('.admin-only');
@@ -895,6 +1309,9 @@
             loadSellerListings();
             loadOrderHistory();
             loadFeaturedListing();
+            if (user.role === 'cliente') {
+                loadClientReservations();
+            }
 
             setLandingViewForRole(user);
         }
@@ -1001,8 +1418,24 @@
                 sellerNotifications = [];
 
                 reservations.forEach(order => {
-                    if (order.listingId?._id) {
-                        sellerReservationMap.set(order.listingId._id, order);
+                    const listingKey = order.listingId?._id || order.listingId;
+                    const normalizedKey = listingKey ? String(listingKey) : null;
+
+                    if (normalizedKey) {
+                        const existing = sellerReservationMap.get(normalizedKey);
+                        const existingDate = existing ? new Date(existing.createdAt || existing.updatedAt || 0).getTime() : 0;
+                        const currentDate = new Date(order.createdAt || order.updatedAt || 0).getTime();
+                        const existingActive = existing && ['pendiente', 'reservada'].includes(existing.status);
+                        const currentActive = ['pendiente', 'reservada'].includes(order.status);
+
+                        const shouldReplace =
+                            !existing ||
+                            (currentActive && !existingActive) ||
+                            currentDate > existingDate;
+
+                        if (shouldReplace) {
+                            sellerReservationMap.set(normalizedKey, order);
+                        }
                     }
 
                     (order.notifications || []).forEach(note => {
@@ -1023,7 +1456,12 @@
                 if (!mine.length) {
                     container.innerHTML = '<p>No tienes publicaciones aún.</p>';
                 } else {
-                    container.innerHTML = mine.map(lst => renderSellerListing(lst, sellerReservationMap.get(lst._id || lst.id))).join('');
+                    container.innerHTML = mine
+                        .map((lst) => {
+                            const listingKey = String(lst._id || lst.id || '');
+                            return renderSellerListing(lst, sellerReservationMap.get(listingKey));
+                        })
+                        .join('');
                     clearCountdowns();
                     activateCountdowns(container);
                 }
@@ -1181,6 +1619,7 @@
             document.getElementById('listing-price').value = listing.price || '';
             document.getElementById('listing-condition').value = listing.condition || 'Mint';
             document.getElementById('listing-description').value = listing.description || '';
+            document.getElementById('listing-whatsapp').value = listing.contactWhatsapp || '';
             listingImageBase64 = listing.imageData || null;
 
             toggleModal(true);
@@ -1464,6 +1903,62 @@
             }
         }
 
+        async function handleProfileSubmit(e) {
+            e.preventDefault();
+
+            if (!authToken || !currentUser) {
+                alert('Debes iniciar sesión para actualizar tu perfil.');
+                return;
+            }
+
+            const name = document.getElementById('profile-edit-name').value.trim();
+            const contactWhatsapp = document.getElementById('profile-edit-whatsapp').value.trim();
+            const payload = {};
+
+            if (name && name !== currentUser.name) {
+                payload.name = name;
+            }
+
+            if (contactWhatsapp !== (currentUser.contactWhatsapp || '')) {
+                payload.contactWhatsapp = contactWhatsapp || null;
+            }
+
+            if (!Object.keys(payload).length) {
+                alert('No realizaste cambios en tu perfil.');
+                return;
+            }
+
+            try {
+                const res = await apiFetch('/api/me', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    currentUser = { ...currentUser, ...data.user };
+                    persistSession(authToken, currentUser);
+                    renderProfileInfo(currentUser);
+                    document.getElementById('user-display-name').innerText = currentUser.name;
+
+                    const listingWhatsapp = document.getElementById('listing-whatsapp');
+                    if (listingWhatsapp && !editingListingId) {
+                        listingWhatsapp.value = currentUser.contactWhatsapp || '';
+                    }
+
+                    toggleProfileModal(false);
+                    alert('✅ Perfil actualizado.');
+                } else {
+                    alert('❌ Error: ' + (data.message || 'No se pudo actualizar el perfil'));
+                }
+            } catch (error) {
+                console.error('Error al actualizar perfil', error);
+                alert('Error de conexión con el servidor.');
+            }
+        }
+
         async function handleCreateListing(e) {
             e.preventDefault();
             if (!authToken || !currentUser) return alert('Debes iniciar sesión como vendedor.');
@@ -1474,6 +1969,7 @@
             const price = Number(document.getElementById('listing-price').value);
             const condition = document.getElementById('listing-condition').value;
             const description = document.getElementById('listing-description').value;
+            const contactWhatsapp = document.getElementById('listing-whatsapp').value.trim();
             const isEditing = !!editingListingId;
 
             if (!name) {
@@ -1485,6 +1981,10 @@
                 const payload = { name, price, condition, description, imageData: listingImageBase64 };
                 if (cardId || isEditing) {
                     payload.cardId = cardId || null;
+                }
+
+                if (contactWhatsapp || isEditing) {
+                    payload.contactWhatsapp = contactWhatsapp || null;
                 }
 
                 const url = isEditing ? `/api/listings/${editingListingId}` : '/api/listings';
@@ -1568,6 +2068,9 @@
                     <div class="history-steps">
                         ${historySteps || '<p class="subtext">Sin eventos registrados.</p>'}
                     </div>
+                    <div class="history-actions">
+                        <button class="btn-secondary ghost" onclick="showOrderDetail('${order._id || order.id}')">Ver detalle</button>
+                    </div>
                 </div>
             `;
         }
@@ -1624,6 +2127,106 @@
             renderHistoryList(filtered);
         }
 
+        function renderClientReservationCard(order) {
+            const listing = order.listingId || {};
+            const listingId = listing._id || listing.id || order.listingId;
+            const seller = listing.sellerId || order.sellerId || {};
+            const cardName = listing.description || listing.cardId || order.card?.name || 'Publicación reservada';
+            const image = listing.imageData || listing.image || listing.card?.images?.small || 'black.jpg';
+            const status = order.status || 'pendiente';
+            const expiresAt = order.reservationExpiresAt || listing.reservedUntil;
+            const createdLabel = order.createdAt ? formatDate(order.createdAt) : '';
+            const expiresLabel = expiresAt ? formatDate(expiresAt) : '';
+            const total = order.total || listing.price;
+            const contact = (listing.contactWhatsapp || '').trim();
+            const contactLink = contact ? `https://wa.me/${contact.replace(/^\\+/, '')}` : '';
+
+            return `
+                <div class="reservation-card">
+                    <div class="reservation-top">
+                        <div class="reservation-image">
+                            <img src="${image}" alt="${cardName}" onerror="this.src='black.jpg'">
+                        </div>
+                        <div class="reservation-info">
+                            <p class="eyebrow">${createdLabel ? 'Creada: ' + createdLabel : 'Reserva creada'}</p>
+                            <h4 class="reservation-title">${cardName}</h4>
+                            <div class="reservation-meta">
+                                ${renderStatusBadge(status)}
+                                ${expiresAt ? `<span class="chip chip-muted"><i class="fa-regular fa-clock"></i> Vence ${expiresLabel}</span>` : ''}
+                            </div>
+                            <p class="reservation-detail">Vendedor: ${seller.name || 'Sin datos'}${seller.email ? ' · ' + seller.email : ''}</p>
+                            <p class="reservation-detail">Importe reservado: ${total ? '$' + total : 'Pendiente de total'}</p>
+                            ${contact
+                              ? `<div class="reservation-contact">
+                                    <span class="chip chip-success"><i class="fa-brands fa-whatsapp"></i> WhatsApp del vendedor</span>
+                                    <a class="reservation-contact__number" href="${contactLink}" target="_blank" rel="noopener">${contact}</a>
+                                 </div>`
+                              : '<p class="reservation-detail subtext">El vendedor aún no ha añadido su WhatsApp.</p>'}
+                        </div>
+                    </div>
+                    <div class="reservation-actions">
+                        ${listingId ? `<button class="btn-secondary ghost" onclick="showListingDetail('${listingId}','')">Ver publicación</button>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadClientReservations() {
+            const container = document.getElementById('client-reservations-list');
+            const counter = document.getElementById('reservations-count');
+
+            if (!container) return;
+
+            if (!authToken || !currentUser || currentUser.role !== 'cliente') {
+                container.innerHTML = '<p class="subtext">Inicia sesión como cliente para ver tus reservas.</p>';
+                if (counter) counter.textContent = '0';
+                return;
+            }
+
+            container.innerHTML = '<p class="subtext">Cargando reservas...</p>';
+
+            try {
+                const res = await apiFetch('/api/orders?type=reserva');
+                const data = await res.json();
+
+                if (!res.ok) {
+                    container.innerHTML = `<p class="subtext">${data.message || 'No se pudieron cargar las reservas.'}</p>`;
+                    if (counter) counter.textContent = '0';
+                    return;
+                }
+
+                const rawOrders = data.orders || [];
+                const userId = getCurrentUserId();
+
+                clientReservationsCache = rawOrders.filter(order => {
+                    const buyerId = order.buyerId?._id || order.buyerId;
+                    return !buyerId || !userId || String(buyerId) === String(userId);
+                });
+
+                const visibleReservations = clientReservationsCache
+                    .filter(order => order.status !== 'cancelada')
+                    .sort((a, b) => {
+                        const weight = { reservada: 0, pendiente: 1, pagada: 2, cancelada: 3 };
+                        const byWeight = (weight[a.status] || 4) - (weight[b.status] || 4);
+                        if (byWeight !== 0) return byWeight;
+                        return new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0);
+                    });
+
+                if (counter) counter.textContent = visibleReservations.length.toString();
+
+                if (!visibleReservations.length) {
+                    container.innerHTML = '<p class="subtext">Aún no tienes reservas activas.</p>';
+                    return;
+                }
+
+                container.innerHTML = visibleReservations.map(renderClientReservationCard).join('');
+            } catch (error) {
+                console.error('No se pudieron cargar las reservas del cliente', error);
+                container.innerHTML = '<p class="subtext">Error al cargar tus reservas.</p>';
+                if (counter) counter.textContent = '0';
+            }
+        }
+
         async function loadOrderHistory() {
             if (!authToken) return;
             const container = document.getElementById('history-list');
@@ -1633,27 +2236,106 @@
             const status = document.getElementById('history-status-filter')?.value;
             const query = status ? `?status=${status}` : '';
 
+            historyLoadPromise = (async () => {
+                try {
+                    const res = await apiFetch('/api/orders' + query);
+                    const data = await res.json();
+                    if (!res.ok) {
+                        container.innerHTML = `<p>Error: ${data.message || 'No se pudo cargar el historial'}</p>`;
+                        return [];
+                    }
+
+                    historyOrdersCache = data.orders || [];
+                    updateHistorySummary(historyOrdersCache);
+
+                    const filtered = historyTypeFilter
+                        ? historyOrdersCache.filter(order => order.type === historyTypeFilter)
+                        : historyOrdersCache;
+
+                    renderHistoryList(filtered);
+                    return historyOrdersCache;
+                } catch (error) {
+                    console.error(error);
+                    container.innerHTML = '<p>Error al cargar el historial.</p>';
+                    historyOrdersCache = [];
+                    updateHistorySummary([]);
+                    return [];
+                }
+            })();
+
+            return historyLoadPromise;
+        }
+
+        async function ensureHistoryLoaded() {
+            if (!authToken) return [];
+            if (!historyLoadPromise) {
+                historyLoadPromise = loadOrderHistory();
+            }
+
             try {
-                const res = await apiFetch('/api/orders' + query);
+                return await historyLoadPromise;
+            } catch (error) {
+                console.error('No se pudo precargar el historial', error);
+                return historyOrdersCache;
+            }
+        }
+
+        async function showOrderDetail(orderId) {
+            if (!orderId) return;
+            if (!authToken) {
+                alert('Inicia sesión para ver el detalle de la orden.');
+                return;
+            }
+
+            await ensureHistoryLoaded();
+
+            const body = document.getElementById('order-detail-body');
+            if (body) {
+                body.innerHTML = '<p>Cargando detalle...</p>';
+            }
+
+            toggleOrderDetail(true);
+
+            try {
+                const res = await apiFetch(`/api/orders/${orderId}`);
                 const data = await res.json();
-                if (!res.ok) {
-                    container.innerHTML = `<p>Error: ${data.message || 'No se pudo cargar el historial'}</p>`;
+
+                if (!res.ok || !data.order) {
+                    body.innerHTML = `<p>${data.message || 'No se pudo cargar el pedido.'}</p>`;
                     return;
                 }
 
-                historyOrdersCache = data.orders || [];
-                updateHistorySummary(historyOrdersCache);
+                const order = data.order;
+                const steps = (order.history || []).map(step => `
+                    <div class="history-step">
+                        <div class="history-step-header">
+                            ${renderStatusBadge(step.status)}
+                            <span class="history-step-date">${formatDate(step.changedAt)}</span>
+                        </div>
+                        <div class="history-step-body">
+                            <p class="history-note">${step.note || ''}</p>
+                            <p class="history-user">${step.changedBy?.name || 'Sistema'}</p>
+                        </div>
+                    </div>
+                `).join('');
 
-                const filtered = historyTypeFilter
-                    ? historyOrdersCache.filter(order => order.type === historyTypeFilter)
-                    : historyOrdersCache;
+                const contactCta = order.listingId ? renderContactCta(order.listingId, order.card?.name || order.listingId.cardId) : '';
 
-                renderHistoryList(filtered);
+                body.innerHTML = `
+                    <div class="order-detail">
+                        <p><strong>Tipo:</strong> ${order.type === 'reserva' ? 'Reserva' : 'Compra'}</p>
+                        <p><strong>Estado:</strong> ${order.status}</p>
+                        <p><strong>Precio:</strong> $${order.total || order.listingId?.price || ''}</p>
+                        <p><strong>Publicación:</strong> ${order.listingId?.name || order.card?.name || order.listingId?.cardId || 'Sin nombre'}</p>
+                        <p><strong>Vendedor:</strong> ${order.sellerId?.name || 'No disponible'} (${order.sellerId?.email || ''})</p>
+                        <p><strong>Comprador:</strong> ${order.buyerId?.name || 'No disponible'} (${order.buyerId?.email || ''})</p>
+                        <div class="history-steps">${steps || '<p class="subtext">Sin eventos registrados.</p>'}</div>
+                        ${contactCta}
+                    </div>
+                `;
             } catch (error) {
                 console.error(error);
-                container.innerHTML = '<p>Error al cargar el historial.</p>';
-                historyOrdersCache = [];
-                updateHistorySummary([]);
+                body.innerHTML = '<p>Error al cargar el detalle de la orden.</p>';
             }
         }
 
@@ -1721,6 +2403,8 @@
             container.innerHTML = "<p>Cargando publicación...</p>";
 
             try {
+                await ensureHistoryLoaded();
+
                 const [listingRes, cardRes] = await Promise.all([
                     fetch(`/api/listings/${listingId}`),
                     cardId ? fetch(`/api/cards/${cardId}`) : Promise.resolve({ ok: false }),
@@ -1742,17 +2426,61 @@
                 const coverImage = listing.imageData || card?.images?.large || 'black.jpg';
                 const displayName = listing.name || card?.name || listing.cardId;
                 const isClient = currentUser && currentUser.role === 'cliente';
+                const statusLabel = listing.status === 'aprobada'
+                    ? 'Publicación aprobada'
+                    : listing.status === 'rechazada'
+                        ? 'Rechazada'
+                        : 'Pendiente de revisión';
+                const reservationNote = isReserved
+                    ? `Reservada hasta ${formatDate(listing.reservedUntil)}`
+                    : available
+                        ? 'Habilitada para reservas'
+                        : 'No disponible para reserva';
 
                 container.innerHTML = `
-                    <div class="detail-card">
+                    <div class="detail-card compact-detail">
                         <div class="detail-left">
-                            <img src="${coverImage}" alt="${card?.name || listing.cardId}" class="detail-img" onerror="this.src='black.jpg'">
+                            <div class="detail-img-frame">
+                                <img src="${coverImage}" alt="${card?.name || listing.cardId}" class="detail-img" onerror="this.src='black.jpg'">
+                            </div>
+                            <div class="detail-tags">
+                                <span class="chip chip-muted">${statusLabel}</span>
+                                <span class="chip ${isReserved ? 'chip-warning' : available ? 'chip-success' : 'chip-muted'}">${availabilityLabel}</span>
+                            </div>
+                            <div class="detail-specs-grid">
+                                <div class="spec-item">
+                                    <p class="spec-label">Publicado</p>
+                                    <p class="spec-value">${formatDate(listing.createdAt) || 'Sin fecha'}</p>
+                                </div>
+                                <div class="spec-item">
+                                    <p class="spec-label">ID publicación</p>
+                                    <p class="spec-value">${listing._id || listing.id || 'N/D'}</p>
+                                </div>
+                                <div class="spec-item">
+                                    <p class="spec-label">ID carta</p>
+                                    <p class="spec-value">${listing.cardId || card?.id || 'N/D'}</p>
+                                </div>
+                                ${isReserved && listing.reservedUntil ? `
+                                    <div class="spec-item accent">
+                                        <p class="spec-label">Vence</p>
+                                        <p class="spec-value">${formatDate(listing.reservedUntil)}</p>
+                                    </div>
+                                ` : ''}
+                            </div>
                         </div>
 
                         <div class="detail-right">
-                            <div class="detail-title-row">
-                                <h2>${displayName}</h2>
-                                <span class="availability-pill ${isReserved ? 'reserved' : available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
+                            <div class="detail-header">
+                                <div>
+                                    <p class="eyebrow">${card?.set?.series || 'Colección no disponible'}</p>
+                                    <h2>${displayName}</h2>
+                                    <p class="detail-subtitle">${card?.set?.name || 'Set desconocido'} • ${card?.rarity || 'Rareza sin definir'}</p>
+                                </div>
+                                <div class="price-card">
+                                    <span class="price-label">Precio</span>
+                                    <span class="price-value">$${listing.price}</span>
+                                    <span class="price-hint">${listing.condition}</span>
+                                </div>
                             </div>
 
                             ${isReserved ? `<div class="reservation-timer" data-expires-at="${listing.reservedUntil}">
@@ -1760,43 +2488,47 @@
                                 <span class="countdown-label">Cargando contador...</span>
                             </div>` : ''}
 
-                            <div class="detail-meta">
-                                <p><strong>Set:</strong> ${card?.set?.name || 'No disponible'}</p>
-                                <p><strong>Rareza:</strong> ${card?.rarity || 'Desconocida'}</p>
-                                <p><strong>Condición:</strong> ${listing.condition}</p>
-                                <p><strong>Precio:</strong> $${listing.price}</p>
+                            <div class="detail-meta modern-grid">
+                                <div>
+                                    <p class="meta-label">Disponibilidad</p>
+                                    <p class="meta-value">${reservationNote}</p>
+                                </div>
+                                <div>
+                                    <p class="meta-label">Tipo</p>
+                                    <p class="meta-value">${card?.supertype || 'No especificado'}</p>
+                                </div>
+                                <div>
+                                    <p class="meta-label">Colección</p>
+                                    <p class="meta-value">${card?.set?.name || 'Sin colección'}</p>
+                                </div>
+                                <div>
+                                    <p class="meta-label">Numero de carta</p>
+                                    <p class="meta-value">${card?.number || listing.cardId || 'N/D'}</p>
+                                </div>
                             </div>
 
                             <div class="detail-description">
-                                <p><strong>Descripción</strong></p>
+                                <p class="section-title">Descripción</p>
                                 <p>${listing.description || 'Sin descripción proporcionada.'}</p>
                             </div>
 
-                            <div class="seller-list">
-                                <div class="seller-card">
+                            <div class="seller-panel">
+                                <div class="seller-main">
                                     <div class="seller-avatar">${(seller.name || 'V')[0]}</div>
-                                    <div>
+                                    <div class="seller-data">
                                         <p class="seller-name">${seller.name || 'Vendedor sin nombre'}</p>
                                         <p class="seller-rating">${seller.email || 'Correo no disponible'}</p>
                                         <p class="seller-rating">Rol: ${seller.role || 'vendedor'}</p>
                                     </div>
-                                    <div class="seller-price">
-                                        $${listing.price}
-                                        <span class="seller-condition">(${listing.condition})</span>
-                                    </div>
+                                </div>
+                                <div class="seller-actions refined">
                                     ${available
-                                        ? `<div class="seller-actions">
-                                            ${isClient
-                                                ? `<button class="btn-reserve" onclick="createOrder('${listing._id || listing.id}','reserva')">Reservar</button>`
-                                                : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
-                                            }
-                                            <a class="btn-primary" href="mailto:${seller.email || ''}?subject=Interés%20en%20${encodeURIComponent(card?.name || listing.cardId)}" target="_blank" rel="noopener noreferrer">Contactar</a>
-                                        </div>`
-                                        : `<div class="seller-actions disabled">
-                                            <span class="availability-note">No disponible para reservar.</span>
-                                            <a class="btn-secondary ghost" href="mailto:${seller.email || ''}?subject=Consulta%20sobre%20${encodeURIComponent(card?.name || listing.cardId)}" target="_blank" rel="noopener noreferrer">Contactar</a>
-                                        </div>`
+                                        ? (isClient
+                                            ? `<button class="btn-reserve" onclick="createOrder('${listing._id || listing.id}','reserva')">Reservar</button>`
+                                            : `<span class="availability-note">Inicia sesión como cliente para reservar.</span>`)
+                                        : `<span class="availability-note">No disponible para reservar.</span>`
                                     }
+                                    <p class="availability-note subtle">Se notificará al vendedor para aprobar la reserva.</p>
                                 </div>
                             </div>
 
@@ -1883,12 +2615,13 @@
                                                         ? `<button class="btn-reserve" onclick="createOrder('${listing.id}','reserva')">Reservar</button>`
                                                         : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
                                                     }
-                                                    <a class="btn-primary" href="mailto:${listing.seller?.email || ''}?subject=Interés%20en%20${encodeURIComponent(card.name)}" target="_blank" rel="noopener noreferrer">Contactar</a>
+                                                    <span class="availability-note">El WhatsApp se habilita solo para quien tiene una reserva activa.</span>
                                                 </div>`
                                                 : `<div class="seller-actions disabled">
                                                     <span class="availability-note">No disponible para compra, reserva ni contacto.</span>
                                                 </div>`
                                             }
+                                            ${renderContactCta(listing, card.name)}
                                         </div>
                                       `; }).join("")
                                     : "<p>No hay vendedores aún.</p>"
@@ -1925,8 +2658,10 @@
                 if (res.ok) {
                     alert(`Orden creada con estado ${data.order.status}. Revisa tu historial.`);
                     if (type === 'reserva') {
+                        await loadOrderHistory();
                         loadPublicationsBoard();
                         loadSellerListings();
+                        showListingDetail(listingId, '');
                     }
                 } else {
                     alert('❌ Error: ' + (data.message || 'No se pudo crear la orden'));

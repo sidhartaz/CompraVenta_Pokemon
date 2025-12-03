@@ -29,6 +29,11 @@ Este documento resume un flujo mínimo para validar la API con herramientas como
   - Esperado: `200 OK` con `token` y `role`.
 - **Perfil protegido** (`GET {{baseUrl}}/api/me` con `Authorization: Bearer {{adminToken}}`)
   - Esperado: `200 OK` con datos del usuario autenticado.
+- **Actualizar perfil** (`PATCH {{baseUrl}}/api/me` con token del usuario)
+  ```json
+  { "name": "Nuevo nombre", "contactWhatsapp": "+56998765432" }
+  ```
+  - Esperado: `200 OK` con el perfil actualizado. El WhatsApp se usará como valor por defecto en nuevas publicaciones.
 
 ## 2) Publicación y aprobación de cartas
 - **Crear listing (vendedor)** (`POST {{baseUrl}}/api/listings` con token de vendedor)
@@ -38,6 +43,7 @@ Este documento resume un flujo mínimo para validar la API con herramientas como
     "condition": "Near Mint",
     "price": 25,
     "description": "Charizard holo primera edición",
+    "contactWhatsapp": "+56911112222",
     "imageData": "data:image/png;base64,iVBORw0K..."
   }
   ```
@@ -67,8 +73,12 @@ Este documento resume un flujo mínimo para validar la API con herramientas como
   - Esperado: `201 Created` con `status: "pendiente"` y primer registro en `history`.
 - **Crear reserva** (`POST {{baseUrl}}/api/orders` con token de cliente y `type: "reserva"`)
   - Solo el rol **cliente** puede reservar; otros roles obtienen `403 Forbidden`.
-  - Esperado: estado inicial `reservada`, `history` indicando creación y una notificación para el vendedor en `notifications`.
+  - Esperado: estado inicial `pendiente`, `history` indicando creación y una notificación para el vendedor en `notifications`. El vendedor/admin debe aprobar (`status=reservada`) o rechazar (`status=cancelada`).
   - Una publicación solo admite una reserva activa; si ya existe otra reserva no cancelada la API responde `400`.
+  - Un intento de compra (`type="compra"`) o nueva reserva sobre una publicación con reserva pendiente/aprobada/pagada también responde `400` indicando que está reservada en este momento.
+  - Las publicaciones con reserva pendiente o aprobada siguen visibles en el catálogo, mostrando `reservedBy`/`reservedUntil` para reflejar el bloqueo sin ocultarlas.
+- **Ver contacto de WhatsApp (solo con reserva activa)** (`GET {{baseUrl}}/api/listings/:id/contact` con token del comprador que reservó)
+  - Esperado: `200 OK` con `{ "contactWhatsapp": "..." }` si el cliente tiene una reserva pendiente/aprobada/pagada; `403` si otro usuario lo intenta y `404` si el vendedor no configuró contacto.
 - **Listar órdenes** (`GET {{baseUrl}}/api/orders`)
   - Admin: todas las órdenes. Vendedor: solo las de sus publicaciones. Cliente: solo sus compras/reservas.
 - **Detalle con historial** (`GET {{baseUrl}}/api/orders/:id`)

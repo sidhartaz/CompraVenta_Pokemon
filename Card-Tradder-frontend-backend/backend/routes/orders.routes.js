@@ -10,6 +10,62 @@ const User = require('../models/User');
 const router = express.Router();
 const DEFAULT_RESERVATION_HOURS = 24;
 
+function normalizeId(value) {
+  if (!value) return null;
+  if (typeof value === 'object' && value._id) return value._id.toString();
+  return value.toString();
+}
+
+function canSeeListingContact(order, user) {
+  if (!order?.listingId) return false;
+
+  if (user.role === 'admin') return true;
+
+  const sellerId = normalizeId(order.sellerId);
+  if (sellerId && sellerId === user.id) return true;
+
+  const buyerId = normalizeId(order.buyerId);
+  const isReservationOwner = order.type === 'reserva' && buyerId === user.id;
+
+  return isReservationOwner && order.status !== 'cancelada';
+}
+
+async function ensureContactForOrder(order, user) {
+  if (!order?.listingId) return order;
+
+  const canSee = canSeeListingContact(order, user);
+
+  // Oculta el contacto si el usuario no está autorizado
+  if (!canSee) {
+    if (order.listingId.contactWhatsapp !== undefined) {
+      const listingData = typeof order.listingId.toObject === 'function'
+        ? order.listingId.toObject()
+        : order.listingId;
+
+      order.listingId = { ...listingData, contactWhatsapp: undefined };
+    }
+
+    return order;
+  }
+
+  const listingData = typeof order.listingId.toObject === 'function'
+    ? order.listingId.toObject()
+    : order.listingId;
+
+  if (!listingData.contactWhatsapp) {
+    const sellerId = normalizeId(order.sellerId);
+    if (sellerId) {
+      const seller = await User.findById(sellerId).select('contactWhatsapp').lean();
+      if (seller?.contactWhatsapp) {
+        listingData.contactWhatsapp = seller.contactWhatsapp;
+      }
+    }
+  }
+
+  order.listingId = listingData;
+  return order;
+}
+
 async function markListingReservation(listingId, { reservedBy = null, reservedUntil = null, isActive }) {
   const update = {
     reservedBy,
@@ -58,6 +114,8 @@ router.post('/', authRequired, async (req, res) => {
       return res.status(400).json({ message: 'El identificador de la publicación no es válido.' });
     }
 
+    await expireOldReservations(Order, Listing);
+
     const listing = await Listing.findById(listingId);
     if (!listing) {
       return res.status(404).json({ message: 'Listing no encontrado' });
@@ -65,17 +123,6 @@ router.post('/', authRequired, async (req, res) => {
 
     if (listing.status !== 'aprobada') {
       return res.status(400).json({ message: 'La publicación debe estar aprobada para generar una orden' });
-    }
-
-    if (!listing.isActive) {
-      return res.status(400).json({ message: 'La publicación no está disponible para nuevas órdenes o reservas.' });
-    }
-
-    const reservationActive =
-      !!listing.reservedUntil && new Date(listing.reservedUntil).getTime() > Date.now();
-
-    if (reservationActive) {
-      return res.status(400).json({ message: 'La publicación está reservada en este momento.' });
     }
 
     const weekAgo = new Date(Date.now() - 7 * DAY_IN_MS);
@@ -95,30 +142,35 @@ router.post('/', authRequired, async (req, res) => {
       return res.status(403).json({ message: 'Solo los clientes pueden crear reservas.' });
     }
 
-    if (normalizedType === 'reserva') {
-      const existingReservation = await Order.findOne({
-        listingId,
-        type: 'reserva',
-        status: { $in: ['reservada', 'pendiente', 'pagada'] },
-      });
+    const activeReservation = await Order.findOne({
+      listingId,
+      type: 'reserva',
+      status: { $in: ['reservada', 'pendiente', 'pagada'] },
+    });
 
-      if (existingReservation) {
-        return res.status(400).json({ message: 'Esta publicación ya cuenta con una reserva activa.' });
-      }
+    if (activeReservation) {
+      const message =
+        normalizedType === 'reserva'
+          ? 'Esta publicación ya cuenta con una reserva activa.'
+          : 'La publicación tiene una reserva pendiente o activa en este momento.';
+
+      return res.status(400).json({ message });
     }
-    const initialStatus = normalizedType === 'reserva' ? 'reservada' : 'pendiente';
+
+    if (!listing.isActive) {
+      return res.status(400).json({ message: 'La publicación no está disponible para nuevas órdenes o reservas.' });
+    }
+
+    const initialStatus = 'pendiente';
 
     const buyer = await User.findById(req.user.id).select('name');
     const notifications = [];
-    const reservationExpiresAt =
-      normalizedType === 'reserva'
-        ? new Date(Date.now() + DEFAULT_RESERVATION_HOURS * 60 * 60 * 1000)
-        : null;
+    const reservationExpiresAt = null;
 
     if (normalizedType === 'reserva') {
       notifications.push({
         type: 'info',
-        message: `${buyer?.name || 'El cliente'} ha creado una reserva para tu publicación "${listing.name}"`,
+        message: `${buyer?.name || 'El cliente'} ha solicitado una reserva para tu publicación "${listing.name}"`,
         recipient: 'seller',
       });
     }
@@ -134,7 +186,11 @@ router.post('/', authRequired, async (req, res) => {
       history: [
         {
           status: initialStatus,
-          note: note || (normalizedType === 'reserva' ? 'Reserva creada' : 'Orden creada'),
+          note:
+            note ||
+            (normalizedType === 'reserva'
+              ? 'Reserva creada y pendiente de aprobación'
+              : 'Orden creada'),
           changedBy: req.user.id,
         },
       ],
@@ -143,17 +199,13 @@ router.post('/', authRequired, async (req, res) => {
       reservationExpiresAt,
     });
 
-    if (normalizedType === 'reserva') {
-      await markListingReservation(listingId, {
-        reservedBy: req.user.id,
-        reservedUntil: reservationExpiresAt,
-      });
-    }
+    await order.populate([
+      { path: 'buyerId', select: 'name email role' },
+      { path: 'sellerId', select: 'name email role' },
+      { path: 'listingId' },
+    ]);
 
-    await order
-      .populate('buyerId', 'name email role')
-      .populate('sellerId', 'name email role')
-      .populate('listingId');
+    await ensureContactForOrder(order, req.user);
 
     return res.status(201).json({ order });
   } catch (err) {
@@ -196,8 +248,11 @@ router.get('/', authRequired, async (req, res) => {
       .lean();
 
     const enrichedOrders = await attachCardData(orders);
+    const sanitized = await Promise.all(
+      enrichedOrders.map((order) => ensureContactForOrder(order, req.user))
+    );
 
-    return res.json({ orders: enrichedOrders });
+    return res.json({ orders: sanitized });
   } catch (err) {
     console.error('Error en GET /api/orders:', err);
     return res.status(500).json({ message: 'Error al listar órdenes' });
@@ -227,8 +282,9 @@ router.get('/:id', authRequired, async (req, res) => {
     }
 
     const [orderWithCard] = await attachCardData([order]);
+    const sanitized = await ensureContactForOrder(orderWithCard, req.user);
 
-    return res.json({ order: orderWithCard });
+    return res.json({ order: sanitized });
   } catch (err) {
     console.error('Error en GET /api/orders/:id:', err);
     return res.status(500).json({ message: 'Error al obtener la orden' });
@@ -252,8 +308,13 @@ router.patch('/:id/status', authRequired, async (req, res) => {
     const isBuyer = order.buyerId.toString() === req.user.id;
     const isAdmin = req.user.role === 'admin';
 
-    // Solo el vendedor o admin pueden marcar pagada/reservada; comprador puede cancelar la suya
-    if (!isAdmin && !isSeller) {
+    // Solo el vendedor puede aprobar la reserva; admin puede gestionar otros estados
+    if (status === 'reservada' && !isSeller) {
+      return res.status(403).json({ message: 'Solo el vendedor puede aprobar una reserva.' });
+    }
+
+    // Comprador solo puede cancelar su propia orden
+    if (!isSeller && !isAdmin) {
       if (!(isBuyer && status === 'cancelada')) {
         return res.status(403).json({ message: 'No tienes permiso para cambiar este estado' });
       }
@@ -273,6 +334,16 @@ router.patch('/:id/status', authRequired, async (req, res) => {
     }
 
     const sellerNotifyingPayment = isSeller && ['pagada', 'cancelada'].includes(status);
+    const reservationApproved = wasReservation && status === 'reservada' && isSeller;
+
+    if (reservationApproved) {
+      order.notifications.push({
+        type: 'reservada',
+        message: 'Tu reserva fue aprobada. Tienes 24 horas para confirmar el pago.',
+        recipient: 'buyer',
+      });
+    }
+
     if (sellerNotifyingPayment) {
       order.notifications.push({
         type: status,
@@ -300,14 +371,18 @@ router.patch('/:id/status', authRequired, async (req, res) => {
         await markListingReservation(order.listingId, {
           reservedBy: order.buyerId,
           reservedUntil: order.reservationExpiresAt,
+          isActive: true,
         });
       }
     }
 
-    await order
-      .populate('buyerId', 'name email role')
-      .populate('sellerId', 'name email role')
-      .populate('listingId');
+    await order.populate([
+      { path: 'buyerId', select: 'name email role' },
+      { path: 'sellerId', select: 'name email role' },
+      { path: 'listingId' },
+    ]);
+
+    await ensureContactForOrder(order, req.user);
 
     return res.json({ order });
   } catch (err) {

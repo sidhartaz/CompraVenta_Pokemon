@@ -16,7 +16,11 @@ const historySchema = new mongoose.Schema(
 
 const notificationSchema = new mongoose.Schema(
   {
-    type: { type: String, enum: ['pagada', 'cancelada', 'info'], default: 'info' },
+    type: {
+      type: String,
+      enum: ['pagada', 'cancelada', 'reservada', 'info'],
+      default: 'info',
+    },
     message: { type: String, required: true },
     recipient: { type: String, enum: ['buyer', 'seller'], default: 'buyer' },
     createdAt: { type: Date, default: Date.now },

@@ -67,6 +67,12 @@ async function generateUniqueSlug(name, excludeId = null) {
   }
 }
 
+function stripContactInfo(listing) {
+  if (!listing) return listing;
+  const { contactWhatsapp, ...rest } = listing;
+  return rest;
+}
+
 const mongoConnection = mongoose
   .connect(mongoUri)
   .then(() => console.log('✅ Base de Datos MongoDB conectada'))
@@ -87,7 +93,7 @@ connectRedis().catch((err) => {
 // Registro
 app.post('/api/register', async (req, res) => {
   console.log('📩 Registro:', req.body.email);
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, contactWhatsapp } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ message: 'Faltan datos' });
@@ -110,6 +116,7 @@ app.post('/api/register', async (req, res) => {
       email,
       password: hashedPassword,
       role: finalRole,
+      contactWhatsapp,
     });
 
     await newUser.save();
@@ -122,6 +129,7 @@ app.post('/api/register', async (req, res) => {
         email: newUser.email,
         name: newUser.name,
         role: newUser.role,
+        contactWhatsapp: newUser.contactWhatsapp,
       },
     });
   } catch (error) {
@@ -168,6 +176,7 @@ app.post('/api/login', async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        contactWhatsapp: user.contactWhatsapp,
       },
     });
   } catch (error) {
@@ -181,7 +190,7 @@ app.post('/api/login', async (req, res) => {
 // Cualquier usuario autenticado (cliente o vendedor)
 app.get('/api/me', authRequired, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('name email role');
+    const user = await User.findById(req.user.id).select('name email role contactWhatsapp');
 
     if (!user) {
       return res.status(404).json({ message: 'Usuario no encontrado' });
@@ -194,11 +203,58 @@ app.get('/api/me', authRequired, async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        contactWhatsapp: user.contactWhatsapp,
       },
     });
   } catch (err) {
     console.error('Error en GET /api/me:', err);
     return res.status(500).json({ message: 'Error al recuperar el usuario' });
+  }
+});
+
+// Actualizar perfil propio (nombre y WhatsApp)
+app.patch('/api/me', authRequired, async (req, res) => {
+  try {
+    const { name, contactWhatsapp } = req.body || {};
+
+    const updates = {};
+
+    if (name !== undefined) {
+      if (!name.trim()) {
+        return res.status(400).json({ message: 'El nombre no puede estar vacío.' });
+      }
+      updates.name = name.trim();
+    }
+
+    if (contactWhatsapp !== undefined) {
+      updates.contactWhatsapp = contactWhatsapp ? contactWhatsapp.trim() : undefined;
+    }
+
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ message: 'No se enviaron cambios para actualizar.' });
+    }
+
+    const updated = await User.findByIdAndUpdate(req.user.id, updates, { new: true }).select(
+      'name email role contactWhatsapp'
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    return res.json({
+      message: 'Perfil actualizado con éxito',
+      user: {
+        id: updated._id,
+        name: updated.name,
+        email: updated.email,
+        role: updated.role,
+        contactWhatsapp: updated.contactWhatsapp,
+      },
+    });
+  } catch (error) {
+    console.error('Error en PATCH /api/me:', error);
+    return res.status(500).json({ message: 'Error al actualizar el perfil' });
   }
 });
 
@@ -230,7 +286,7 @@ app.get('/api/listings', async (req, res) => {
     const cardMap = new Map(cards.map((card) => [card.id, card]));
 
     const enriched = listings.map((lst) => ({
-      ...lst,
+      ...stripContactInfo(lst),
       card: cardMap.get(lst.cardId) || null,
     }));
 
@@ -285,7 +341,7 @@ app.get('/api/listings/featured', async (req, res) => {
 
     return res.json({
       listing: {
-        ...featured,
+        ...stripContactInfo(featured),
         card,
       },
     });
@@ -316,23 +372,82 @@ app.get('/api/listings/:id', async (req, res) => {
       return res.status(403).json({ message: 'La publicación no está disponible.' });
     }
 
-    return res.json(listing);
+    return res.json(stripContactInfo(listing));
   } catch (error) {
     console.error('Error en GET /api/listings/:id:', error);
     return res.status(500).json({ message: 'Error del servidor' });
   }
 });
 
+app.get('/api/listings/:id/contact', authRequired, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Identificador de publicación inválido.' });
+    }
+
+    await expireOldReservations(Order, Listing);
+
+    const listing = await Listing.findById(id).lean();
+    if (!listing) {
+      return res.status(404).json({ message: 'Publicación no encontrada' });
+    }
+
+    const isSeller = listing.sellerId?.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    const isReservedByUser = listing.reservedBy?.toString() === req.user.id;
+
+    const hasActiveReservation = await Order.exists({
+      listingId: id,
+      buyerId: req.user.id,
+      type: 'reserva',
+      status: { $in: ['pendiente', 'reservada', 'pagada'] },
+    });
+
+    if (!isSeller && !isAdmin && !hasActiveReservation && !isReservedByUser) {
+      return res
+        .status(403)
+        .json({ message: 'Solo el comprador con una reserva activa puede ver el contacto del vendedor.' });
+    }
+
+    let contactWhatsapp = listing.contactWhatsapp;
+
+    if (!contactWhatsapp && listing.sellerId) {
+      const seller = await User.findById(listing.sellerId).select('contactWhatsapp').lean();
+      contactWhatsapp = seller?.contactWhatsapp;
+    }
+
+    if (!contactWhatsapp) {
+      return res
+        .status(404)
+        .json({ message: 'El vendedor aún no ha agregado un número de WhatsApp para esta publicación.' });
+    }
+
+    return res.json({ contactWhatsapp });
+  } catch (error) {
+    console.error('Error en GET /api/listings/:id/contact:', error);
+    return res.status(500).json({ message: 'Error al obtener el contacto de la publicación' });
+  }
+});
+
 // Crear una publicación (solo vendedores)
 app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res) => {
   try {
-    const { cardId, price, condition, description, imageData, name } = req.body;
+    const { cardId, price, condition, description, imageData, name, contactWhatsapp } = req.body;
 
     if (!name || price === undefined || !condition) {
       return res.status(400).json({ message: 'Faltan datos: name, price, condition' });
     }
 
     const slug = await generateUniqueSlug(name);
+
+    let sellerContact = contactWhatsapp;
+    if (sellerContact === undefined) {
+      const seller = await User.findById(req.user.id).select('contactWhatsapp');
+      sellerContact = seller?.contactWhatsapp;
+    }
 
     const newListing = new Listing({
       cardId,
@@ -342,6 +457,7 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
       condition,
       description,
       imageData,
+      contactWhatsapp: sellerContact,
       sellerId: req.user.id, // del token JWT
       status: 'pendiente',
     });
@@ -361,7 +477,7 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
 // Actualizar una publicación (solo vendedores dueños de la publicación)
 app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, res) => {
   try {
-    const { price, condition, description, imageData, name } = req.body;
+    const { price, condition, description, imageData, name, contactWhatsapp } = req.body;
 
     const listing = await Listing.findById(req.params.id);
     if (!listing) {
@@ -376,6 +492,7 @@ app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, 
     if (condition !== undefined) listing.condition = condition;
     if (description !== undefined) listing.description = description;
     if (imageData !== undefined) listing.imageData = imageData;
+    if (contactWhatsapp !== undefined) listing.contactWhatsapp = contactWhatsapp;
     if (req.body.cardId !== undefined) listing.cardId = req.body.cardId || undefined;
     if (name !== undefined) {
       listing.name = name;
@@ -606,6 +723,8 @@ app.get('/api/cards/:id', async (req, res) => {
       imageData: lst.imageData,
       status: lst.status,
       isActive: lst.isActive,
+      reservedBy: lst.reservedBy,
+      reservedUntil: lst.reservedUntil,
     }));
 
     return res.json({

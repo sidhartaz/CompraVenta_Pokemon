@@ -15,6 +15,7 @@ const listingSchema = new mongoose.Schema({
   description: { type: String },
   imageData: { type: String },
   searchCount: { type: Number, default: 0 },
+  contactWhatsapp: { type: String },
 
   // Estado de validación por parte de admin
   status: {
