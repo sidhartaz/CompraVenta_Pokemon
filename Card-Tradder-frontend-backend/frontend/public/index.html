@@ -702,6 +702,15 @@
             return isReservedByCurrentUser(listing) || hasActiveReservationForCurrentUser(listing);
         }
 
+        function autoRevealContactIfAllowed(listing) {
+            const listingId = getIdValue(listing?._id || listing?.id);
+            if (!listingId) return;
+
+            if (canCurrentUserSeeContact(listing)) {
+                setTimeout(() => revealContact(listingId), 100);
+            }
+        }
+
         function activateCountdowns(root = document) {
             const timers = root.querySelectorAll('[data-expires-at]');
             timers.forEach((timerEl) => {
@@ -759,16 +768,45 @@
 
             const allowed = canCurrentUserSeeContact(listing);
             const helper = allowed
-                ? 'Solo tú puedes ver el WhatsApp del vendedor gracias a tu reserva.'
-                : 'Pulsa para validar tu acceso: solo quien tiene la reserva activa podrá ver el contacto.';
+                ? 'Tienes una reserva activa: mostraremos el WhatsApp al instante.'
+                : 'Validaremos tu acceso: solo el comprador con reserva activa podrá ver el contacto.';
 
             return `
-                <div class="contact-box${allowed ? '' : ' disabled'}" id="contact-box-${listingId}">
-                    <p class="subtext">${helper}</p>
-                    <button class="${allowed ? 'btn-primary' : 'btn-secondary'}" type="button" onclick="event.stopPropagation(); revealContact('${listingId}')">
-                        <i class="fa-brands fa-whatsapp"></i> Ver contacto WhatsApp
-                    </button>
-                    <p class="contact-error subtext"></p>
+                <div class="contact-card${allowed ? '' : ' disabled'}" id="contact-box-${listingId}">
+                    <div class="contact-header">
+                        <div>
+                            <p class="eyebrow">Contacto del vendedor</p>
+                            <h4>${itemLabel}</h4>
+                            <p class="subtext">${helper}</p>
+                        </div>
+                        <div class="contact-status ${allowed ? 'success' : 'muted'}">
+                            <i class="fa-brands fa-whatsapp"></i>
+                            <span>${allowed ? 'Reserva activa' : 'Reserva requerida'}</span>
+                        </div>
+                    </div>
+
+                    <div class="contact-body">
+                        <div class="contact-note">
+                            <i class="fa-solid fa-shield-heart"></i>
+                            <div>
+                                <p class="contact-title">WhatsApp protegido</p>
+                                <p class="subtext">Compartimos el número solo si la reserva está vigente o eres el vendedor.</p>
+                            </div>
+                        </div>
+
+                        <div class="contact-display hidden"></div>
+
+                        <div class="contact-actions">
+                            <button class="btn-contact" type="button" onclick="event.stopPropagation(); revealContact('${listingId}')">
+                                <div class="btn-contact-main">
+                                    <i class="fa-brands fa-whatsapp"></i>
+                                    <span class="btn-label">Ver contacto WhatsApp</span>
+                                </div>
+                                <span class="btn-sub">Abre el chat directo con el vendedor cuando estés autorizado.</span>
+                            </button>
+                            <p class="contact-error subtext"></p>
+                        </div>
+                    </div>
                 </div>
             `;
         }
@@ -780,11 +818,16 @@
             }
 
             const box = document.getElementById(`contact-box-${listingId}`);
-            const errorEl = box?.querySelector('.contact-error');
-            const button = box?.querySelector('button');
+            if (!box) return;
+
+            const errorEl = box.querySelector('.contact-error');
+            const button = box.querySelector('button');
+            const displayEl = box.querySelector('.contact-display');
+            const actionsEl = box.querySelector('.contact-actions');
 
             if (errorEl) errorEl.textContent = '';
             if (button) button.disabled = true;
+            if (displayEl) displayEl.classList.add('hidden');
 
             try {
                 let contact = listingContactCache.get(listingId);
@@ -811,17 +854,21 @@
                 const whatsappTarget = numeric || contact;
                 const link = `https://wa.me/${whatsappTarget.replace(/^\+/, '')}`;
 
-                if (box) {
-                    box.classList.remove('disabled');
-                }
+                box.classList.remove('disabled');
+                if (actionsEl) actionsEl.classList.add('hidden');
 
-                box.innerHTML = `
-                    <div class="contact-display">
-                        <i class="fa-brands fa-whatsapp"></i>
-                        <a href="${link}" target="_blank" rel="noopener noreferrer">${contact}</a>
-                        <p class="subtext">Comparte este contacto solo a través de tu reserva.</p>
-                    </div>
-                `;
+                if (displayEl) {
+                    displayEl.innerHTML = `
+                        <div class="contact-display-row">
+                            <div class="contact-number">
+                                <i class="fa-brands fa-whatsapp"></i>
+                                <a href="${link}" target="_blank" rel="noopener noreferrer">${contact}</a>
+                            </div>
+                            <span class="contact-helper">Listo para enviar mensaje por WhatsApp</span>
+                        </div>
+                    `;
+                    displayEl.classList.remove('hidden');
+                }
             } catch (error) {
                 console.error('Error al cargar contacto', error);
                 if (errorEl) errorEl.textContent = 'No se pudo cargar el contacto. Intenta nuevamente.';
@@ -2204,6 +2251,7 @@
                 `;
                 clearCountdowns();
                 activateCountdowns(container);
+                autoRevealContactIfAllowed(listing);
             } catch (error) {
                 console.error(error);
                 container.innerHTML = "<p>Error cargando la publicación.</p>";

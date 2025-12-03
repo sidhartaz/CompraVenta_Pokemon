@@ -198,6 +198,152 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
     color: #92400e;
 }
 
+.contact-card {
+    margin-top: 12px;
+    padding: 16px;
+    background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.contact-card.disabled {
+    opacity: 0.8;
+}
+
+.contact-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.contact-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: #e0f2fe;
+    color: #075985;
+    font-weight: 600;
+}
+
+.contact-status.success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.contact-status.muted {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.contact-body {
+    display: grid;
+    gap: 12px;
+}
+
+.contact-note {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 12px;
+    background: #fff;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    color: #475569;
+}
+
+.contact-title {
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    color: var(--text-gray);
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.btn-contact {
+    width: 100%;
+    text-align: left;
+    border: 1px solid #c7d2fe;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: #fff;
+    border-radius: 14px;
+    padding: 14px 16px;
+    cursor: pointer;
+    display: grid;
+    gap: 6px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-contact:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25);
+}
+
+.btn-contact-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.btn-sub {
+    font-size: 0.9rem;
+    color: #e5edff;
+}
+
+.contact-error {
+    color: #b91c1c;
+}
+
+.contact-display {
+    background: #fff;
+    border: 1px solid #dbeafe;
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.contact-display-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.contact-number {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.contact-number a {
+    color: #0f172a;
+    text-decoration: none;
+}
+
+.contact-number a:hover {
+    color: #2563eb;
+}
+
+.contact-helper {
+    color: #475569;
+}
+
 .reservation-timer {
     display: inline-flex;
     align-items: center;
