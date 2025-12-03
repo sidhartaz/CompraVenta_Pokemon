@@ -201,67 +201,73 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
 .contact-card {
     margin-top: 12px;
     padding: 16px;
-    background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
-    border: 1px solid #e5e7eb;
-    border-radius: 16px;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.05);
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .contact-card.disabled {
-    opacity: 0.8;
+    opacity: 0.85;
 }
 
-.contact-header {
+.contact-card.contact-ready {
+    border-color: #bfdbfe;
+    box-shadow: 0 10px 30px -16px rgba(59,130,246,0.4);
+}
+
+.contact-card.contact-loading {
+    border-color: #e0e7ff;
+}
+
+.contact-top {
     display: flex;
-    align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
+    align-items: flex-start;
 }
 
-.contact-status {
+.contact-heading h4 { margin: 0; }
+
+.contact-chip {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
-    border-radius: 12px;
-    background: #e0f2fe;
-    color: #075985;
-    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.85rem;
 }
 
-.contact-status.success {
-    background: #dcfce7;
-    color: #166534;
-}
+.chip-success { background: #dcfce7; color: #166534; }
+.chip-muted { background: #e2e8f0; color: #475569; }
 
-.contact-status.muted {
-    background: #e2e8f0;
-    color: #475569;
-}
+.contact-body { display: grid; gap: 10px; }
 
-.contact-body {
-    display: grid;
-    gap: 12px;
-}
-
-.contact-note {
+.contact-compact {
     display: flex;
     gap: 10px;
-    align-items: flex-start;
-    padding: 12px;
+    align-items: center;
+    padding: 10px 12px;
     background: #fff;
     border: 1px dashed #cbd5e1;
-    border-radius: 12px;
-    color: #475569;
+    border-radius: 10px;
 }
 
-.contact-title {
-    font-weight: 700;
-    margin-bottom: 4px;
+.contact-compact__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: #eef2ff;
+    display: grid;
+    place-items: center;
+    color: #4338ca;
 }
+
+.contact-title { font-weight: 700; margin: 0 0 4px; }
 
 .eyebrow {
     text-transform: uppercase;
@@ -274,43 +280,28 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
 
 .btn-contact {
     width: 100%;
-    text-align: left;
-    border: 1px solid #c7d2fe;
-    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    border: 1px solid #cbd5e1;
+    background: #0ea5e9;
     color: #fff;
-    border-radius: 14px;
-    padding: 14px 16px;
+    border-radius: 12px;
+    padding: 12px 14px;
     cursor: pointer;
     display: grid;
     gap: 6px;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+    text-align: left;
 }
 
-.btn-contact:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25);
-}
+.btn-contact:hover { background: #0284c7; box-shadow: 0 12px 28px -18px rgba(14,165,233,0.7); transform: translateY(-1px); }
+.btn-contact:disabled { opacity: 0.7; cursor: not-allowed; }
 
-.btn-contact-main {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 700;
-    font-size: 1rem;
-}
-
-.btn-sub {
-    font-size: 0.9rem;
-    color: #e5edff;
-}
-
-.contact-error {
-    color: #b91c1c;
-}
+.btn-contact__main { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; }
+.btn-sub { font-size: 0.9rem; color: #e0f2fe; }
+.contact-error { color: #b91c1c; }
 
 .contact-display {
     background: #fff;
-    border: 1px solid #dbeafe;
+    border: 1px solid #bfdbfe;
     border-radius: 12px;
     padding: 12px;
 }
@@ -327,22 +318,13 @@ body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    font-weight: 700;
+    font-weight: 800;
     color: #0f172a;
 }
 
-.contact-number a {
-    color: #0f172a;
-    text-decoration: none;
-}
-
-.contact-number a:hover {
-    color: #2563eb;
-}
-
-.contact-helper {
-    color: #475569;
-}
+.contact-number a { color: #0f172a; text-decoration: none; }
+.contact-number a:hover { color: #2563eb; }
+.contact-helper { color: #475569; }
 
 .reservation-timer {
     display: inline-flex;

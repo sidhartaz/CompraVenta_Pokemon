@@ -768,29 +768,29 @@
 
             const allowed = canCurrentUserSeeContact(listing);
             const helper = allowed
-                ? 'Tienes una reserva activa: mostraremos el WhatsApp al instante.'
-                : 'Validaremos tu acceso: solo el comprador con reserva activa podrá ver el contacto.';
+                ? 'Reserva activa detectada, cargaremos el WhatsApp automáticamente.'
+                : 'Solo el comprador con reserva activa podrá ver el contacto.';
 
             return `
                 <div class="contact-card${allowed ? '' : ' disabled'}" id="contact-box-${listingId}">
-                    <div class="contact-header">
-                        <div>
+                    <div class="contact-top">
+                        <div class="contact-heading">
                             <p class="eyebrow">Contacto del vendedor</p>
                             <h4>${itemLabel}</h4>
                             <p class="subtext">${helper}</p>
                         </div>
-                        <div class="contact-status ${allowed ? 'success' : 'muted'}">
+                        <div class="contact-chip ${allowed ? 'chip-success' : 'chip-muted'}">
                             <i class="fa-brands fa-whatsapp"></i>
                             <span>${allowed ? 'Reserva activa' : 'Reserva requerida'}</span>
                         </div>
                     </div>
 
                     <div class="contact-body">
-                        <div class="contact-note">
-                            <i class="fa-solid fa-shield-heart"></i>
+                        <div class="contact-compact">
+                            <div class="contact-compact__icon"><i class="fa-solid fa-lock"></i></div>
                             <div>
                                 <p class="contact-title">WhatsApp protegido</p>
-                                <p class="subtext">Compartimos el número solo si la reserva está vigente o eres el vendedor.</p>
+                                <p class="subtext">Mostraremos el número solo cuando el acceso esté autorizado.</p>
                             </div>
                         </div>
 
@@ -798,11 +798,8 @@
 
                         <div class="contact-actions">
                             <button class="btn-contact" type="button" onclick="event.stopPropagation(); revealContact('${listingId}')">
-                                <div class="btn-contact-main">
-                                    <i class="fa-brands fa-whatsapp"></i>
-                                    <span class="btn-label">Ver contacto WhatsApp</span>
-                                </div>
-                                <span class="btn-sub">Abre el chat directo con el vendedor cuando estés autorizado.</span>
+                                <span class="btn-contact__main"><i class="fa-brands fa-whatsapp"></i> Ver contacto</span>
+                                <span class="btn-sub">Se abrirá el chat directo una vez recuperemos el número.</span>
                             </button>
                             <p class="contact-error subtext"></p>
                         </div>
@@ -817,7 +814,8 @@
                 return;
             }
 
-            const box = document.getElementById(`contact-box-${listingId}`);
+            const normalizedId = getIdValue(listingId);
+            const box = document.getElementById(`contact-box-${normalizedId}`);
             if (!box) return;
 
             const errorEl = box.querySelector('.contact-error');
@@ -828,12 +826,14 @@
             if (errorEl) errorEl.textContent = '';
             if (button) button.disabled = true;
             if (displayEl) displayEl.classList.add('hidden');
+            box.classList.remove('contact-ready');
+            box.classList.add('contact-loading');
 
             try {
-                let contact = listingContactCache.get(listingId);
+                let contact = listingContactCache.get(normalizedId);
 
                 if (!contact) {
-                    const res = await apiFetch(`/api/listings/${listingId}/contact`);
+                    const res = await apiFetch(`/api/listings/${normalizedId}/contact`);
                     const data = await res.json();
 
                     if (!res.ok) {
@@ -842,7 +842,7 @@
                     }
 
                     contact = data.contactWhatsapp;
-                    listingContactCache.set(listingId, contact);
+                    listingContactCache.set(normalizedId, contact);
                 }
 
                 if (!contact) {
@@ -854,7 +854,8 @@
                 const whatsappTarget = numeric || contact;
                 const link = `https://wa.me/${whatsappTarget.replace(/^\+/, '')}`;
 
-                box.classList.remove('disabled');
+                box.classList.remove('disabled', 'contact-loading');
+                box.classList.add('contact-ready');
                 if (actionsEl) actionsEl.classList.add('hidden');
 
                 if (displayEl) {
