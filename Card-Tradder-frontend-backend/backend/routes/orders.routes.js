@@ -67,10 +67,6 @@ router.post('/', authRequired, async (req, res) => {
       return res.status(400).json({ message: 'La publicación debe estar aprobada para generar una orden' });
     }
 
-    if (!listing.isActive) {
-      return res.status(400).json({ message: 'La publicación no está disponible para nuevas órdenes o reservas.' });
-    }
-
     const weekAgo = new Date(Date.now() - 7 * DAY_IN_MS);
     const weeklyOrders = await Order.countDocuments({
       buyerId: req.user.id,
@@ -101,6 +97,10 @@ router.post('/', authRequired, async (req, res) => {
           : 'La publicación tiene una reserva pendiente o activa en este momento.';
 
       return res.status(400).json({ message });
+    }
+
+    if (!listing.isActive) {
+      return res.status(400).json({ message: 'La publicación no está disponible para nuevas órdenes o reservas.' });
     }
 
     const initialStatus = 'pendiente';
