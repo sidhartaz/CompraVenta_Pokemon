@@ -682,7 +682,7 @@
                     ${available
                         ? `<div class="publication-actions">
                             ${isClient
-                                ? `<button class="btn-secondary" onclick="event.stopPropagation(); createOrder('${listingId}','reserva')">Reservar</button>`
+                                ? `<button class="btn-reserve" onclick="event.stopPropagation(); createOrder('${listingId}','reserva')">Reservar</button>`
                                 : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
                             }
                             <a class="btn-link" onclick="event.stopPropagation();" href="mailto:${seller.email || ''}?subject=Interés%20en%20${encodeURIComponent(cardName)}" target="_blank" rel="noopener noreferrer">Contactar vendedor</a>
@@ -1787,7 +1787,7 @@
                                     ${available
                                         ? `<div class="seller-actions">
                                             ${isClient
-                                                ? `<button class="btn-secondary" onclick="createOrder('${listing._id || listing.id}','reserva')">Reservar</button>`
+                                                ? `<button class="btn-reserve" onclick="createOrder('${listing._id || listing.id}','reserva')">Reservar</button>`
                                                 : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
                                             }
                                             <a class="btn-primary" href="mailto:${seller.email || ''}?subject=Interés%20en%20${encodeURIComponent(card?.name || listing.cardId)}" target="_blank" rel="noopener noreferrer">Contactar</a>
@@ -1880,7 +1880,7 @@
                                             ? `<div class="seller-actions">
                                                     <button class="btn-primary" onclick="createOrder('${listing.id}','compra')">Comprar</button>
                                                     ${isClient
-                                                        ? `<button class="btn-secondary" onclick="createOrder('${listing.id}','reserva')">Reservar</button>`
+                                                        ? `<button class="btn-reserve" onclick="createOrder('${listing.id}','reserva')">Reservar</button>`
                                                         : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
                                                     }
                                                     <a class="btn-primary" href="mailto:${listing.seller?.email || ''}?subject=Interés%20en%20${encodeURIComponent(card.name)}" target="_blank" rel="noopener noreferrer">Contactar</a>

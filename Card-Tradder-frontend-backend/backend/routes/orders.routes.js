@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const { authRequired } = require('../middlewares/auth');
 const Listing = require('../models/Listing');
 const Order = require('../models/Order');
@@ -51,6 +52,10 @@ router.post('/', authRequired, async (req, res) => {
 
     if (!listingId) {
       return res.status(400).json({ message: 'listingId es obligatorio' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(listingId)) {
+      return res.status(400).json({ message: 'El identificador de la publicación no es válido.' });
     }
 
     const listing = await Listing.findById(listingId);
@@ -153,7 +158,7 @@ router.post('/', authRequired, async (req, res) => {
     return res.status(201).json({ order });
   } catch (err) {
     console.error('Error en POST /api/orders:', err);
-    return res.status(500).json({ message: 'Error al crear la orden' });
+    return res.status(500).json({ message: 'Error al crear la orden', detail: err.message });
   }
 });
 
