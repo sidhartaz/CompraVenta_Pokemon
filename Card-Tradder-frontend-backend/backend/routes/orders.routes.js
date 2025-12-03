@@ -58,6 +58,8 @@ router.post('/', authRequired, async (req, res) => {
       return res.status(400).json({ message: 'El identificador de la publicación no es válido.' });
     }
 
+    await expireOldReservations(Order, Listing);
+
     const listing = await Listing.findById(listingId);
     if (!listing) {
       return res.status(404).json({ message: 'Listing no encontrado' });
