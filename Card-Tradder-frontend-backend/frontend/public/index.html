@@ -136,7 +136,9 @@
                 <a href="#" class="menu-item seller-only" onclick="toggleModal()">
                     <i class="fa-solid fa-plus-circle"></i> Publicar Carta
                 </a>
-                <a href="#" class="menu-item"><i class="fa-solid fa-handshake"></i> Intercambios</a>
+                <a href="#" class="menu-item" data-view="reservations" onclick="showView('reservations', this)">
+                    <i class="fa-solid fa-calendar-check"></i> Reservas
+                </a>
                 <a href="#" class="menu-item" onclick="showView('history', this); loadOrderHistory();"><i class="fa-solid fa-clock-rotate-left"></i> Historial</a>
                 
                 <div class="menu-separator">CUENTA</div>
@@ -374,6 +376,24 @@
                 </div>
             </div>
 
+            <!-- VISTA RESERVAS (CLIENTE) -->
+            <div id="view-reservations" class="view-section hidden">
+                <div class="card">
+                    <div class="card-header reservations-header">
+                        <div>
+                            <h3>Mis reservas</h3>
+                            <p class="subtext">Encuentra rápidamente las publicaciones que tienes reservadas.</p>
+                        </div>
+                        <div class="pill-counter" id="reservations-count">0</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="reservations-grid" id="client-reservations-list">
+                            <p class="subtext">Inicia sesión como cliente para ver tus reservas activas.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- VISTA PUBLICACIONES -->
             <div id="view-publications" class="view-section hidden">
                 <div class="card">
@@ -539,6 +559,7 @@
         let historyOrdersCache = [];
         let historyLoadPromise = null;
         let historyTypeFilter = '';
+        let clientReservationsCache = [];
         let countdownIntervals = [];
         let sellerListingsCache = [];
         let sellerReservationMap = new Map();
@@ -1169,7 +1190,7 @@
 
         // Mostrar vista principal (usada por el menú)
         function showView(viewName, element) {
-            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-publications', 'view-admin', 'view-history', 'view-card-detail'];
+            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-publications', 'view-admin', 'view-history', 'view-reservations', 'view-card-detail'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -1193,6 +1214,7 @@
                 admin: 'Panel de Administración',
                 'card-detail': 'Detalle de Carta',
                 history: 'Historial',
+                reservations: 'Reservas',
             };
             document.getElementById('page-title').textContent = titles[viewName] || 'Card Trader';
 
@@ -1203,6 +1225,10 @@
 
             if (viewName === 'history') {
                 loadOrderHistory();
+            }
+
+            if (viewName === 'reservations') {
+                loadClientReservations();
             }
 
             if (viewName === 'publications') {
@@ -1228,7 +1254,7 @@
 
         // Helper para cambiar de vista desde otras funciones (detalle de carta)
         function showSection(sectionId) {
-            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-publications', 'view-admin', 'view-history', 'view-card-detail'];
+            const sections = ['view-home', 'view-dashboard', 'view-catalog', 'view-publications', 'view-admin', 'view-history', 'view-reservations', 'view-card-detail'];
             sections.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -1283,6 +1309,9 @@
             loadSellerListings();
             loadOrderHistory();
             loadFeaturedListing();
+            if (user.role === 'cliente') {
+                loadClientReservations();
+            }
 
             setLandingViewForRole(user);
         }
@@ -2096,6 +2125,99 @@
                 : historyOrdersCache;
 
             renderHistoryList(filtered);
+        }
+
+        function renderClientReservationCard(order) {
+            const listing = order.listingId || {};
+            const listingId = listing._id || listing.id || order.listingId;
+            const seller = listing.sellerId || order.sellerId || {};
+            const cardName = listing.description || listing.cardId || order.card?.name || 'Publicación reservada';
+            const image = listing.imageData || listing.image || listing.card?.images?.small || 'black.jpg';
+            const status = order.status || 'pendiente';
+            const expiresAt = order.reservationExpiresAt || listing.reservedUntil;
+            const createdLabel = order.createdAt ? formatDate(order.createdAt) : '';
+            const expiresLabel = expiresAt ? formatDate(expiresAt) : '';
+            const total = order.total || listing.price;
+
+            return `
+                <div class="reservation-card">
+                    <div class="reservation-top">
+                        <div class="reservation-image">
+                            <img src="${image}" alt="${cardName}" onerror="this.src='black.jpg'">
+                        </div>
+                        <div class="reservation-info">
+                            <p class="eyebrow">${createdLabel ? 'Creada: ' + createdLabel : 'Reserva creada'}</p>
+                            <h4 class="reservation-title">${cardName}</h4>
+                            <div class="reservation-meta">
+                                ${renderStatusBadge(status)}
+                                ${expiresAt ? `<span class="chip chip-muted"><i class="fa-regular fa-clock"></i> Vence ${expiresLabel}</span>` : ''}
+                            </div>
+                            <p class="reservation-detail">Vendedor: ${seller.name || 'Sin datos'}${seller.email ? ' · ' + seller.email : ''}</p>
+                            <p class="reservation-detail">Importe reservado: ${total ? '$' + total : 'Pendiente de total'}</p>
+                        </div>
+                    </div>
+                    <div class="reservation-actions">
+                        ${listingId ? `<button class="btn-secondary ghost" onclick="showListingDetail('${listingId}','')">Ver publicación</button>` : ''}
+                        <button class="btn-secondary ghost" onclick="showOrderDetail('${order._id || order.id}')">Ver pedido</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadClientReservations() {
+            const container = document.getElementById('client-reservations-list');
+            const counter = document.getElementById('reservations-count');
+
+            if (!container) return;
+
+            if (!authToken || !currentUser || currentUser.role !== 'cliente') {
+                container.innerHTML = '<p class="subtext">Inicia sesión como cliente para ver tus reservas.</p>';
+                if (counter) counter.textContent = '0';
+                return;
+            }
+
+            container.innerHTML = '<p class="subtext">Cargando reservas...</p>';
+
+            try {
+                const res = await apiFetch('/api/orders?type=reserva');
+                const data = await res.json();
+
+                if (!res.ok) {
+                    container.innerHTML = `<p class="subtext">${data.message || 'No se pudieron cargar las reservas.'}</p>`;
+                    if (counter) counter.textContent = '0';
+                    return;
+                }
+
+                const rawOrders = data.orders || [];
+                const userId = getCurrentUserId();
+
+                clientReservationsCache = rawOrders.filter(order => {
+                    const buyerId = order.buyerId?._id || order.buyerId;
+                    return !buyerId || !userId || String(buyerId) === String(userId);
+                });
+
+                const visibleReservations = clientReservationsCache
+                    .filter(order => order.status !== 'cancelada')
+                    .sort((a, b) => {
+                        const weight = { reservada: 0, pendiente: 1, pagada: 2, cancelada: 3 };
+                        const byWeight = (weight[a.status] || 4) - (weight[b.status] || 4);
+                        if (byWeight !== 0) return byWeight;
+                        return new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0);
+                    });
+
+                if (counter) counter.textContent = visibleReservations.length.toString();
+
+                if (!visibleReservations.length) {
+                    container.innerHTML = '<p class="subtext">Aún no tienes reservas activas.</p>';
+                    return;
+                }
+
+                container.innerHTML = visibleReservations.map(renderClientReservationCard).join('');
+            } catch (error) {
+                console.error('No se pudieron cargar las reservas del cliente', error);
+                container.innerHTML = '<p class="subtext">Error al cargar tus reservas.</p>';
+                if (counter) counter.textContent = '0';
+            }
         }
 
         async function loadOrderHistory() {
