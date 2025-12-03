@@ -2297,17 +2297,61 @@
                 const coverImage = listing.imageData || card?.images?.large || 'black.jpg';
                 const displayName = listing.name || card?.name || listing.cardId;
                 const isClient = currentUser && currentUser.role === 'cliente';
+                const statusLabel = listing.status === 'aprobada'
+                    ? 'Publicación aprobada'
+                    : listing.status === 'rechazada'
+                        ? 'Rechazada'
+                        : 'Pendiente de revisión';
+                const reservationNote = isReserved
+                    ? `Reservada hasta ${formatDate(listing.reservedUntil)}`
+                    : available
+                        ? 'Habilitada para reservas'
+                        : 'No disponible para reserva';
 
                 container.innerHTML = `
-                    <div class="detail-card">
+                    <div class="detail-card compact-detail">
                         <div class="detail-left">
-                            <img src="${coverImage}" alt="${card?.name || listing.cardId}" class="detail-img" onerror="this.src='black.jpg'">
+                            <div class="detail-img-frame">
+                                <img src="${coverImage}" alt="${card?.name || listing.cardId}" class="detail-img" onerror="this.src='black.jpg'">
+                            </div>
+                            <div class="detail-tags">
+                                <span class="chip chip-muted">${statusLabel}</span>
+                                <span class="chip ${isReserved ? 'chip-warning' : available ? 'chip-success' : 'chip-muted'}">${availabilityLabel}</span>
+                            </div>
+                            <div class="detail-specs-grid">
+                                <div class="spec-item">
+                                    <p class="spec-label">Publicado</p>
+                                    <p class="spec-value">${formatDate(listing.createdAt) || 'Sin fecha'}</p>
+                                </div>
+                                <div class="spec-item">
+                                    <p class="spec-label">ID publicación</p>
+                                    <p class="spec-value">${listing._id || listing.id || 'N/D'}</p>
+                                </div>
+                                <div class="spec-item">
+                                    <p class="spec-label">ID carta</p>
+                                    <p class="spec-value">${listing.cardId || card?.id || 'N/D'}</p>
+                                </div>
+                                ${isReserved && listing.reservedUntil ? `
+                                    <div class="spec-item accent">
+                                        <p class="spec-label">Vence</p>
+                                        <p class="spec-value">${formatDate(listing.reservedUntil)}</p>
+                                    </div>
+                                ` : ''}
+                            </div>
                         </div>
 
                         <div class="detail-right">
-                            <div class="detail-title-row">
-                                <h2>${displayName}</h2>
-                                <span class="availability-pill ${isReserved ? 'reserved' : available ? 'available' : 'unavailable'}">${availabilityLabel}</span>
+                            <div class="detail-header">
+                                <div>
+                                    <p class="eyebrow">${card?.set?.series || 'Colección no disponible'}</p>
+                                    <h2>${displayName}</h2>
+                                    <p class="detail-subtitle">${card?.set?.name || 'Set desconocido'} • ${card?.rarity || 'Rareza sin definir'}</p>
+                                </div>
+                                <div class="price-card">
+                                    <span class="price-label">Precio</span>
+                                    <span class="price-value">$${listing.price}</span>
+                                    <span class="price-hint">${listing.condition}</span>
+                                </div>
                             </div>
 
                             ${isReserved ? `<div class="reservation-timer" data-expires-at="${listing.reservedUntil}">
@@ -2315,43 +2359,47 @@
                                 <span class="countdown-label">Cargando contador...</span>
                             </div>` : ''}
 
-                            <div class="detail-meta">
-                                <p><strong>Set:</strong> ${card?.set?.name || 'No disponible'}</p>
-                                <p><strong>Rareza:</strong> ${card?.rarity || 'Desconocida'}</p>
-                                <p><strong>Condición:</strong> ${listing.condition}</p>
-                                <p><strong>Precio:</strong> $${listing.price}</p>
+                            <div class="detail-meta modern-grid">
+                                <div>
+                                    <p class="meta-label">Disponibilidad</p>
+                                    <p class="meta-value">${reservationNote}</p>
+                                </div>
+                                <div>
+                                    <p class="meta-label">Tipo</p>
+                                    <p class="meta-value">${card?.supertype || 'No especificado'}</p>
+                                </div>
+                                <div>
+                                    <p class="meta-label">Colección</p>
+                                    <p class="meta-value">${card?.set?.name || 'Sin colección'}</p>
+                                </div>
+                                <div>
+                                    <p class="meta-label">Numero de carta</p>
+                                    <p class="meta-value">${card?.number || listing.cardId || 'N/D'}</p>
+                                </div>
                             </div>
 
                             <div class="detail-description">
-                                <p><strong>Descripción</strong></p>
+                                <p class="section-title">Descripción</p>
                                 <p>${listing.description || 'Sin descripción proporcionada.'}</p>
                             </div>
 
-                            <div class="seller-list">
-                                <div class="seller-card">
+                            <div class="seller-panel">
+                                <div class="seller-main">
                                     <div class="seller-avatar">${(seller.name || 'V')[0]}</div>
-                                    <div>
+                                    <div class="seller-data">
                                         <p class="seller-name">${seller.name || 'Vendedor sin nombre'}</p>
                                         <p class="seller-rating">${seller.email || 'Correo no disponible'}</p>
                                         <p class="seller-rating">Rol: ${seller.role || 'vendedor'}</p>
                                     </div>
-                                    <div class="seller-price">
-                                        $${listing.price}
-                                        <span class="seller-condition">(${listing.condition})</span>
-                                    </div>
-                            ${available
-                                        ? `<div class="seller-actions">
-                                            ${isClient
-                                                ? `<button class="btn-reserve" onclick="createOrder('${listing._id || listing.id}','reserva')">Reservar</button>`
-                                                : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
-                                            }
-                                            <span class="availability-note">El WhatsApp se mostrará solo a clientes con reserva activa.</span>
-                                        </div>`
-                                        : `<div class="seller-actions disabled">
-                                            <span class="availability-note">No disponible para reservar.</span>
-                                        </div>`
+                                </div>
+                                <div class="seller-actions refined">
+                                    ${available
+                                        ? (isClient
+                                            ? `<button class="btn-reserve" onclick="createOrder('${listing._id || listing.id}','reserva')">Reservar</button>`
+                                            : `<span class="availability-note">Inicia sesión como cliente para reservar.</span>`)
+                                        : `<span class="availability-note">No disponible para reservar.</span>`
                                     }
-                                    ${renderDetailContactCta(listing, card?.name || listing.cardId)}
+                                    <p class="availability-note subtle">Se notificará al vendedor para aprobar la reserva.</p>
                                 </div>
                             </div>
 
@@ -2363,7 +2411,6 @@
                 `;
                 clearCountdowns();
                 activateCountdowns(container);
-                hydrateDetailContact(listing);
             } catch (error) {
                 console.error(error);
                 container.innerHTML = "<p>Error cargando la publicación.</p>";
