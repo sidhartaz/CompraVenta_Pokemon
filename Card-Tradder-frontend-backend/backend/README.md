@@ -56,13 +56,13 @@ docker compose up --build
 - **Ruta protegida**: `GET /api/me` requiere header `Authorization: Bearer <token>`.
 - **Restricción por rol**:
   - `GET /api/listings` devuelve únicamente publicaciones aprobadas por defecto (opcional `?status=` para otros filtros) y devuelve el vendedor (solo `status=aprobada` se usa en catálogos de cartas).
-  - `POST/PUT/DELETE /api/listings` solo para rol `vendedor` y únicamente sobre sus propias publicaciones. Ahora aceptan `imageData` (base64) opcional para guardar la imagen de la publicación directamente en MongoDB.
+  - `POST/PUT/DELETE /api/listings` solo para rol `vendedor` y únicamente sobre sus propias publicaciones. Aceptan `imageData` (base64) y `contactWhatsapp` opcionales; el WhatsApp se protege y solo se expone mediante `GET /api/listings/:id/contact` al vendedor, admin o comprador con reserva activa.
   - `GET /api/admin/publications` y `PATCH /api/admin/publications/:id/status` requieren rol `admin` para aprobar o rechazar publicaciones.
 
 ### Flujo mínimo de publicaciones
 
 1. Crear usuarios con `role: vendedor` y `role: admin` (ver sección de semillas).
-2. El vendedor crea un listing con `name`, `price`, `condition`, `description` y, opcionalmente, `cardId` (TCG), `imageData` (base64) → queda en `status: pendiente`.
+2. El vendedor crea un listing con `name`, `price`, `condition`, `description` y, opcionalmente, `cardId` (TCG), `imageData` (base64) y `contactWhatsapp` → queda en `status: pendiente`.
 3. El admin consulta `GET /api/admin/publications?status=pendiente` y aprueba/rechaza con `PATCH ... { "status": "aprobada" }`.
 4. Solo las publicaciones **aprobadas** aparecen en `GET /api/cards/search` (catálogo cacheado) y en `GET /api/cards/:id`.
 
@@ -74,6 +74,7 @@ docker compose up --build
 - Una publicación con reserva pendiente, aprobada o pagada bloquea nuevas compras o reservas y expone `reservedUntil` una vez aprobada para mostrar el contador de 24 horas en el frontend; si la reserva se cancela manual o automáticamente, la disponibilidad se restablece. La publicación permanece visible en el catálogo marcada como reservada en lugar de ocultarse.
 - Cuando un vendedor marca una orden como `pagada` o `cancelada`, el sistema agrega una notificación para el comprador (campo `notifications`).
 - Solo el rol `cliente` puede crear reservas; si otro rol lo intenta, `POST /api/orders` responde con 403.
+- Solo el comprador con una reserva activa (o el vendedor/admin) puede recuperar el WhatsApp del vendedor mediante `GET /api/listings/:id/contact`; el número no se expone en catálogos ni en órdenes ajenas.
 
 ### Órdenes, reservas y pagos externos
 

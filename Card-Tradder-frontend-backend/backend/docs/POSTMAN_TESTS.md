@@ -38,6 +38,7 @@ Este documento resume un flujo mínimo para validar la API con herramientas como
     "condition": "Near Mint",
     "price": 25,
     "description": "Charizard holo primera edición",
+    "contactWhatsapp": "+56911112222",
     "imageData": "data:image/png;base64,iVBORw0K..."
   }
   ```
@@ -71,6 +72,8 @@ Este documento resume un flujo mínimo para validar la API con herramientas como
   - Una publicación solo admite una reserva activa; si ya existe otra reserva no cancelada la API responde `400`.
   - Un intento de compra (`type="compra"`) o nueva reserva sobre una publicación con reserva pendiente/aprobada/pagada también responde `400` indicando que está reservada en este momento.
   - Las publicaciones con reserva pendiente o aprobada siguen visibles en el catálogo, mostrando `reservedBy`/`reservedUntil` para reflejar el bloqueo sin ocultarlas.
+- **Ver contacto de WhatsApp (solo con reserva activa)** (`GET {{baseUrl}}/api/listings/:id/contact` con token del comprador que reservó)
+  - Esperado: `200 OK` con `{ "contactWhatsapp": "..." }` si el cliente tiene una reserva pendiente/aprobada/pagada; `403` si otro usuario lo intenta y `404` si el vendedor no configuró contacto.
 - **Listar órdenes** (`GET {{baseUrl}}/api/orders`)
   - Admin: todas las órdenes. Vendedor: solo las de sus publicaciones. Cliente: solo sus compras/reservas.
 - **Detalle con historial** (`GET {{baseUrl}}/api/orders/:id`)

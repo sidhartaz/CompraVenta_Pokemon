@@ -10,6 +10,38 @@ const User = require('../models/User');
 const router = express.Router();
 const DEFAULT_RESERVATION_HOURS = 24;
 
+function normalizeId(value) {
+  if (!value) return null;
+  if (typeof value === 'object' && value._id) return value._id.toString();
+  return value.toString();
+}
+
+function canSeeListingContact(order, user) {
+  if (!order?.listingId) return false;
+
+  if (user.role === 'admin') return true;
+
+  const sellerId = normalizeId(order.sellerId);
+  if (sellerId && sellerId === user.id) return true;
+
+  const buyerId = normalizeId(order.buyerId);
+  const isReservationOwner = order.type === 'reserva' && buyerId === user.id;
+
+  return isReservationOwner && order.status !== 'cancelada';
+}
+
+function stripContactFromOrder(order, user) {
+  if (!order?.listingId) return order;
+
+  if (!canSeeListingContact(order, user)) {
+    if (order.listingId.contactWhatsapp !== undefined) {
+      order.listingId = { ...order.listingId, contactWhatsapp: undefined };
+    }
+  }
+
+  return order;
+}
+
 async function markListingReservation(listingId, { reservedBy = null, reservedUntil = null, isActive }) {
   const update = {
     reservedBy,
@@ -156,6 +188,8 @@ router.post('/', authRequired, async (req, res) => {
       { path: 'listingId' },
     ]);
 
+    stripContactFromOrder(order, req.user);
+
     return res.status(201).json({ order });
   } catch (err) {
     console.error('Error en POST /api/orders:', err);
@@ -197,8 +231,9 @@ router.get('/', authRequired, async (req, res) => {
       .lean();
 
     const enrichedOrders = await attachCardData(orders);
+    const sanitized = enrichedOrders.map((order) => stripContactFromOrder(order, req.user));
 
-    return res.json({ orders: enrichedOrders });
+    return res.json({ orders: sanitized });
   } catch (err) {
     console.error('Error en GET /api/orders:', err);
     return res.status(500).json({ message: 'Error al listar órdenes' });
@@ -229,7 +264,7 @@ router.get('/:id', authRequired, async (req, res) => {
 
     const [orderWithCard] = await attachCardData([order]);
 
-    return res.json({ order: orderWithCard });
+    return res.json({ order: stripContactFromOrder(orderWithCard, req.user) });
   } catch (err) {
     console.error('Error en GET /api/orders/:id:', err);
     return res.status(500).json({ message: 'Error al obtener la orden' });
@@ -321,6 +356,8 @@ router.patch('/:id/status', authRequired, async (req, res) => {
       { path: 'sellerId', select: 'name email role' },
       { path: 'listingId' },
     ]);
+
+    stripContactFromOrder(order, req.user);
 
     return res.json({ order });
   } catch (err) {

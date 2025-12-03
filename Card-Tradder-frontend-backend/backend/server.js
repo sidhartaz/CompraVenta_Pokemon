@@ -67,6 +67,12 @@ async function generateUniqueSlug(name, excludeId = null) {
   }
 }
 
+function stripContactInfo(listing) {
+  if (!listing) return listing;
+  const { contactWhatsapp, ...rest } = listing;
+  return rest;
+}
+
 const mongoConnection = mongoose
   .connect(mongoUri)
   .then(() => console.log('✅ Base de Datos MongoDB conectada'))
@@ -230,7 +236,7 @@ app.get('/api/listings', async (req, res) => {
     const cardMap = new Map(cards.map((card) => [card.id, card]));
 
     const enriched = listings.map((lst) => ({
-      ...lst,
+      ...stripContactInfo(lst),
       card: cardMap.get(lst.cardId) || null,
     }));
 
@@ -285,7 +291,7 @@ app.get('/api/listings/featured', async (req, res) => {
 
     return res.json({
       listing: {
-        ...featured,
+        ...stripContactInfo(featured),
         card,
       },
     });
@@ -316,17 +322,61 @@ app.get('/api/listings/:id', async (req, res) => {
       return res.status(403).json({ message: 'La publicación no está disponible.' });
     }
 
-    return res.json(listing);
+    return res.json(stripContactInfo(listing));
   } catch (error) {
     console.error('Error en GET /api/listings/:id:', error);
     return res.status(500).json({ message: 'Error del servidor' });
   }
 });
 
+app.get('/api/listings/:id/contact', authRequired, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Identificador de publicación inválido.' });
+    }
+
+    await expireOldReservations(Order, Listing);
+
+    const listing = await Listing.findById(id).lean();
+    if (!listing) {
+      return res.status(404).json({ message: 'Publicación no encontrada' });
+    }
+
+    const isSeller = listing.sellerId?.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    const hasActiveReservation = await Order.exists({
+      listingId: id,
+      buyerId: req.user.id,
+      type: 'reserva',
+      status: { $in: ['pendiente', 'reservada', 'pagada'] },
+    });
+
+    if (!isSeller && !isAdmin && !hasActiveReservation) {
+      return res
+        .status(403)
+        .json({ message: 'Solo el comprador con una reserva activa puede ver el contacto del vendedor.' });
+    }
+
+    if (!listing.contactWhatsapp) {
+      return res
+        .status(404)
+        .json({ message: 'El vendedor aún no ha agregado un número de WhatsApp para esta publicación.' });
+    }
+
+    return res.json({ contactWhatsapp: listing.contactWhatsapp });
+  } catch (error) {
+    console.error('Error en GET /api/listings/:id/contact:', error);
+    return res.status(500).json({ message: 'Error al obtener el contacto de la publicación' });
+  }
+});
+
 // Crear una publicación (solo vendedores)
 app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res) => {
   try {
-    const { cardId, price, condition, description, imageData, name } = req.body;
+    const { cardId, price, condition, description, imageData, name, contactWhatsapp } = req.body;
 
     if (!name || price === undefined || !condition) {
       return res.status(400).json({ message: 'Faltan datos: name, price, condition' });
@@ -342,6 +392,7 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
       condition,
       description,
       imageData,
+      contactWhatsapp,
       sellerId: req.user.id, // del token JWT
       status: 'pendiente',
     });
@@ -361,7 +412,7 @@ app.post('/api/listings', authRequired, requireRole('vendedor'), async (req, res
 // Actualizar una publicación (solo vendedores dueños de la publicación)
 app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, res) => {
   try {
-    const { price, condition, description, imageData, name } = req.body;
+    const { price, condition, description, imageData, name, contactWhatsapp } = req.body;
 
     const listing = await Listing.findById(req.params.id);
     if (!listing) {
@@ -376,6 +427,7 @@ app.put('/api/listings/:id', authRequired, requireRole('vendedor'), async (req, 
     if (condition !== undefined) listing.condition = condition;
     if (description !== undefined) listing.description = description;
     if (imageData !== undefined) listing.imageData = imageData;
+    if (contactWhatsapp !== undefined) listing.contactWhatsapp = contactWhatsapp;
     if (req.body.cardId !== undefined) listing.cardId = req.body.cardId || undefined;
     if (name !== undefined) {
       listing.name = name;
@@ -606,6 +658,8 @@ app.get('/api/cards/:id', async (req, res) => {
       imageData: lst.imageData,
       status: lst.status,
       isActive: lst.isActive,
+      reservedBy: lst.reservedBy,
+      reservedUntil: lst.reservedUntil,
     }));
 
     return res.json({

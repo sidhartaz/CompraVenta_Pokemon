@@ -462,6 +462,11 @@
                         <textarea class="form-input" id="listing-description" rows="3" placeholder="Notas opcionales sobre la carta"></textarea>
                     </div>
                     <div class="form-group">
+                        <label>WhatsApp del vendedor (solo visible para reservas)</label>
+                        <input type="text" class="form-input" id="listing-whatsapp" placeholder="Ej: +56912345678">
+                        <small>Comparte un número donde puedas coordinar con el comprador cuando tenga una reserva activa.</small>
+                    </div>
+                    <div class="form-group">
                         <label>Imagen de la carta (opcional)</label>
                         <input type="file" class="form-input" accept="image/*" id="listing-image" onchange="handleListingImageChange(event)">
                         <small>La imagen se guardará en la base de datos junto con la publicación.</small>
@@ -491,6 +496,7 @@
         let sellerReservationMap = new Map();
         let sellerNotifications = [];
         let editingListingId = null;
+        let listingContactCache = new Map();
 
         function persistSession(token, user) {
             authToken = token;
@@ -512,6 +518,7 @@
             sessionStorage.removeItem(CURRENT_USER_KEY);
             localStorage.removeItem(AUTH_TOKEN_KEY);
             localStorage.removeItem(CURRENT_USER_KEY);
+            listingContactCache = new Map();
         }
 
         function getStoredSession() {
@@ -583,10 +590,31 @@
         }
 
         function isListingReserved(listing) {
-            if (!listing || !listing.reservedUntil) return false;
-            const expiresAt = new Date(listing.reservedUntil).getTime();
-            if (Number.isNaN(expiresAt)) return false;
-            return expiresAt > Date.now();
+            if (!listing) return false;
+            const hasOwner = !!listing.reservedBy;
+            const expiresAt = listing.reservedUntil ? new Date(listing.reservedUntil).getTime() : null;
+
+            if (expiresAt && !Number.isNaN(expiresAt)) {
+                return expiresAt > Date.now();
+            }
+
+            return hasOwner;
+        }
+
+        function getIdValue(value) {
+            if (!value) return null;
+            if (typeof value === 'object' && value._id) return value._id.toString();
+            return value.toString();
+        }
+
+        function getCurrentUserId() {
+            return getIdValue(currentUser?._id || currentUser?.id || currentUser?._id);
+        }
+
+        function isReservedByCurrentUser(listing) {
+            const reservedOwner = getIdValue(listing?.reservedBy);
+            const userId = getCurrentUserId();
+            return !!reservedOwner && !!userId && reservedOwner === userId;
         }
 
         function activateCountdowns(root = document) {
@@ -640,6 +668,83 @@
             `;
         }
 
+        function renderContactCta(listing, itemLabel = 'esta publicación') {
+            const listingId = listing._id || listing.id;
+            if (!listingId) return '';
+
+            if (isReservedByCurrentUser(listing)) {
+                return `
+                    <div class="contact-box" id="contact-box-${listingId}">
+                        <p class="subtext">Solo tú puedes ver el WhatsApp del vendedor gracias a tu reserva.</p>
+                        <button class="btn-primary" type="button" onclick="event.stopPropagation(); revealContact('${listingId}')">
+                            <i class="fa-brands fa-whatsapp"></i> Ver contacto WhatsApp
+                        </button>
+                        <p class="contact-error subtext"></p>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="contact-box disabled">
+                    <span class="availability-note">El contacto directo solo se habilita para quien tiene la reserva activa.</span>
+                    <p class="subtext">Reserva ${itemLabel} para ver el WhatsApp del vendedor.</p>
+                </div>
+            `;
+        }
+
+        async function revealContact(listingId) {
+            if (!authToken) {
+                alert('Debes iniciar sesión para ver el contacto del vendedor.');
+                return;
+            }
+
+            const box = document.getElementById(`contact-box-${listingId}`);
+            const errorEl = box?.querySelector('.contact-error');
+            const button = box?.querySelector('button');
+
+            if (errorEl) errorEl.textContent = '';
+            if (button) button.disabled = true;
+
+            try {
+                let contact = listingContactCache.get(listingId);
+
+                if (!contact) {
+                    const res = await apiFetch(`/api/listings/${listingId}/contact`);
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        if (errorEl) errorEl.textContent = data.message || 'No se pudo recuperar el contacto.';
+                        return;
+                    }
+
+                    contact = data.contactWhatsapp;
+                    listingContactCache.set(listingId, contact);
+                }
+
+                if (!contact) {
+                    if (errorEl) errorEl.textContent = 'No hay un número de WhatsApp configurado.';
+                    return;
+                }
+
+                const numeric = contact.replace(/[^0-9]/g, '');
+                const whatsappTarget = numeric || contact;
+                const link = `https://wa.me/${whatsappTarget.replace(/^\+/, '')}`;
+
+                box.innerHTML = `
+                    <div class="contact-display">
+                        <i class="fa-brands fa-whatsapp"></i>
+                        <a href="${link}" target="_blank" rel="noopener noreferrer">${contact}</a>
+                        <p class="subtext">Comparte este contacto solo a través de tu reserva.</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error al cargar contacto', error);
+                if (errorEl) errorEl.textContent = 'No se pudo cargar el contacto. Intenta nuevamente.';
+            } finally {
+                if (button) button.disabled = false;
+            }
+        }
+
         function renderPublicationCard(listing) {
             const card = listing.card || {};
             const seller = listing.sellerId || listing.seller || {};
@@ -685,14 +790,15 @@
                                 ? `<button class="btn-reserve" onclick="event.stopPropagation(); createOrder('${listingId}','reserva')">Reservar</button>`
                                 : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
                             }
-                            <a class="btn-link" onclick="event.stopPropagation();" href="mailto:${seller.email || ''}?subject=Interés%20en%20${encodeURIComponent(cardName)}" target="_blank" rel="noopener noreferrer">Contactar vendedor</a>
+                            <span class="availability-note">El WhatsApp aparecerá cuando tengas la reserva activa.</span>
                             <button class="btn-secondary ghost" onclick="event.stopPropagation(); showListingDetail('${listingId}','${listing.cardId || ''}')">Ver detalle</button>
                         </div>`
                         : `<div class="publication-actions disabled">
-                            <span class="availability-note">No disponible para compra, reserva ni contacto.</span>
+                            <span class="availability-note">No disponible para compra ni reserva.</span>
                             <button class="btn-secondary ghost" onclick="event.stopPropagation(); showListingDetail('${listingId}','${listing.cardId || ''}')">Ver detalle</button>
                         </div>`
                     }
+                    ${renderContactCta(listing, cardName)}
                 </div>
             `;
         }
@@ -1189,6 +1295,7 @@
             document.getElementById('listing-price').value = listing.price || '';
             document.getElementById('listing-condition').value = listing.condition || 'Mint';
             document.getElementById('listing-description').value = listing.description || '';
+            document.getElementById('listing-whatsapp').value = listing.contactWhatsapp || '';
             listingImageBase64 = listing.imageData || null;
 
             toggleModal(true);
@@ -1482,6 +1589,7 @@
             const price = Number(document.getElementById('listing-price').value);
             const condition = document.getElementById('listing-condition').value;
             const description = document.getElementById('listing-description').value;
+            const contactWhatsapp = document.getElementById('listing-whatsapp').value.trim();
             const isEditing = !!editingListingId;
 
             if (!name) {
@@ -1493,6 +1601,10 @@
                 const payload = { name, price, condition, description, imageData: listingImageBase64 };
                 if (cardId || isEditing) {
                     payload.cardId = cardId || null;
+                }
+
+                if (contactWhatsapp || isEditing) {
+                    payload.contactWhatsapp = contactWhatsapp || null;
                 }
 
                 const url = isEditing ? `/api/listings/${editingListingId}` : '/api/listings';
@@ -1798,13 +1910,13 @@
                                                 ? `<button class="btn-reserve" onclick="createOrder('${listing._id || listing.id}','reserva')">Reservar</button>`
                                                 : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
                                             }
-                                            <a class="btn-primary" href="mailto:${seller.email || ''}?subject=Interés%20en%20${encodeURIComponent(card?.name || listing.cardId)}" target="_blank" rel="noopener noreferrer">Contactar</a>
+                                            <span class="availability-note">El WhatsApp se mostrará una vez que confirmes tu reserva.</span>
                                         </div>`
                                         : `<div class="seller-actions disabled">
                                             <span class="availability-note">No disponible para reservar.</span>
-                                            <a class="btn-secondary ghost" href="mailto:${seller.email || ''}?subject=Consulta%20sobre%20${encodeURIComponent(card?.name || listing.cardId)}" target="_blank" rel="noopener noreferrer">Contactar</a>
                                         </div>`
                                     }
+                                    ${renderContactCta(listing, card?.name || listing.cardId)}
                                 </div>
                             </div>
 
@@ -1891,12 +2003,13 @@
                                                         ? `<button class="btn-reserve" onclick="createOrder('${listing.id}','reserva')">Reservar</button>`
                                                         : `<span class="availability-note">Solo los clientes pueden reservar.</span>`
                                                     }
-                                                    <a class="btn-primary" href="mailto:${listing.seller?.email || ''}?subject=Interés%20en%20${encodeURIComponent(card.name)}" target="_blank" rel="noopener noreferrer">Contactar</a>
+                                                    <span class="availability-note">El WhatsApp se habilita solo para quien tiene una reserva activa.</span>
                                                 </div>`
                                                 : `<div class="seller-actions disabled">
                                                     <span class="availability-note">No disponible para compra, reserva ni contacto.</span>
                                                 </div>`
                                             }
+                                            ${renderContactCta(listing, card.name)}
                                         </div>
                                       `; }).join("")
                                     : "<p>No hay vendedores aún.</p>"
