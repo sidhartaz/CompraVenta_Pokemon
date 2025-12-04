@@ -10,6 +10,13 @@ const User = require('../models/User');
 const router = express.Router();
 const DEFAULT_RESERVATION_HOURS = 24;
 
+function getPagination(query = {}, { defaultLimit = 20, maxLimit = 100 } = {}) {
+  const page = Math.max(parseInt(query.page, 10) || 1, 1);
+  const pageSize = Math.min(Math.max(parseInt(query.limit, 10) || defaultLimit, 1), maxLimit);
+
+  return { page, pageSize, skip: (page - 1) * pageSize };
+}
+
 function normalizeId(value) {
   if (!value) return null;
   if (typeof value === 'object' && value._id) return value._id.toString();
@@ -100,6 +107,13 @@ async function attachCardData(orders) {
   return orders.map((order) => ({
     ...order,
     card: cardMap.get(order.cardId) || null,
+    listingId:
+      order.listingId && typeof order.listingId === 'object'
+        ? {
+            ...order.listingId,
+            card: order.listingId.card || cardMap.get(order.cardId) || null,
+          }
+        : order.listingId,
   }));
 }
 
@@ -241,20 +255,35 @@ router.get('/', authRequired, async (req, res) => {
       filter.buyerId = req.user.id;
     }
 
-    const orders = await Order.find(filter)
-      .populate('buyerId', 'name email role')
-      .populate('sellerId', 'name email role')
-      .populate('listingId')
-      .populate('history.changedBy', 'name email role')
-      .sort({ createdAt: -1 })
-      .lean();
+    const { page, pageSize, skip } = getPagination(req.query, { defaultLimit: 30, maxLimit: 200 });
+
+    const [orders, total] = await Promise.all([
+      Order.find(filter)
+        .populate('buyerId', 'name email role')
+        .populate('sellerId', 'name email role')
+        .populate('listingId')
+        .populate('history.changedBy', 'name email role')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(pageSize)
+        .lean(),
+      Order.countDocuments(filter),
+    ]);
 
     const enrichedOrders = await attachCardData(orders);
     const sanitized = await Promise.all(
       enrichedOrders.map((order) => ensureContactForOrder(order, req.user))
     );
 
-    return res.json({ orders: sanitized });
+    return res.json({
+      orders: sanitized,
+      pagination: {
+        total,
+        page,
+        pageSize,
+        totalPages: Math.max(Math.ceil(total / pageSize), 1),
+      },
+    });
   } catch (err) {
     console.error('Error en GET /api/orders:', err);
     return res.status(500).json({ message: 'Error al listar órdenes' });

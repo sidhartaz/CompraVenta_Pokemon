@@ -1,3 +1,17 @@
+        function normalizeListingsPayload(payload) {
+            const items = Array.isArray(payload) ? payload : payload.items || payload.listings || [];
+            const pagination = Array.isArray(payload)
+                ? { total: items.length, page: 1, pageSize: items.length, totalPages: 1 }
+                : payload.pagination || {
+                    total: payload.total ?? items.length,
+                    page: 1,
+                    pageSize: items.length,
+                    totalPages: 1,
+                };
+
+            return { items, pagination };
+        }
+
         async function loadHomeListings() {
             const container = document.getElementById('home-listings');
             if (!container) return;
@@ -5,14 +19,15 @@
 
             try {
                 const res = await fetch('/api/listings');
-                const data = await res.json();
+                const payload = await res.json();
+                const { items } = normalizeListingsPayload(payload);
 
-                if (!Array.isArray(data) || data.length === 0) {
+                if (!items.length) {
                     container.innerHTML = '<p>No hay publicaciones aprobadas.</p>';
                     return;
                 }
 
-                const latest = data.slice(0, 4);
+                const latest = items.slice(0, 4);
                 container.innerHTML = latest.map(renderListingCard).join('');
             } catch (err) {
                 console.error(err);
@@ -27,14 +42,15 @@
 
             try {
                 const res = await fetch('/api/listings');
-                const data = await res.json();
+                const payload = await res.json();
+                const { items } = normalizeListingsPayload(payload);
 
-                if (!Array.isArray(data) || data.length === 0) {
+                if (!items.length) {
                     container.innerHTML = '<p>No hay publicaciones activas.</p>';
                     return;
                 }
 
-                container.innerHTML = data.map(renderListingCard).join('');
+                container.innerHTML = items.map(renderListingCard).join('');
             } catch (err) {
                 console.error(err);
                 container.innerHTML = '<p>Error cargando catálogo.</p>';
@@ -48,17 +64,18 @@
 
             try {
                 const res = await fetch('/api/listings');
-                const data = await res.json();
+                const payload = await res.json();
+                const { items, pagination } = normalizeListingsPayload(payload);
 
                 const counter = document.getElementById('publications-count');
-                if (counter) counter.textContent = Array.isArray(data) ? data.length : 0;
+                if (counter) counter.textContent = pagination.total || items.length;
 
-                if (!Array.isArray(data) || data.length === 0) {
+                if (!items.length) {
                     container.innerHTML = '<p>No hay publicaciones activas.</p>';
                     return;
                 }
 
-                container.innerHTML = data.map(renderPublicationCard).join('');
+                container.innerHTML = items.map(renderPublicationCard).join('');
                 clearCountdowns();
                 activateCountdowns(container);
             } catch (err) {

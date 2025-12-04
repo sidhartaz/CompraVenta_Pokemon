@@ -113,8 +113,9 @@
             const listing = order.listingId || {};
             const listingId = listing._id || listing.id || order.listingId;
             const seller = listing.sellerId || order.sellerId || {};
-            const cardName = listing.description || listing.cardId || order.card?.name || 'Publicación reservada';
-            const image = listing.imageData || listing.image || listing.card?.images?.small || 'black.jpg';
+            const cardName = listing.name || listing.description || listing.cardId || order.card?.name || 'Publicación reservada';
+            const listingImage = listing.imageData || listing.image;
+            const image = listingImage || listing.card?.images?.small || order.card?.images?.small || 'black.jpg';
             const status = order.status || 'pendiente';
             const expiresAt = order.reservationExpiresAt || listing.reservedUntil;
             const createdLabel = order.createdAt ? formatDate(order.createdAt) : '';
@@ -122,6 +123,10 @@
             const total = order.total || listing.price;
             const contact = (listing.contactWhatsapp || '').trim();
             const contactLink = contact ? `https://wa.me/${contact.replace(/^\\+/, '')}` : '';
+
+            if (typeof cacheListingPreview === 'function') {
+                cacheListingPreview(listingId, listingImage);
+            }
 
             return `
                 <div class="reservation-card">
@@ -147,7 +152,7 @@
                         </div>
                     </div>
                     <div class="reservation-actions">
-                        ${listingId ? `<button class="btn-secondary ghost" onclick="showListingDetail('${listingId}','')">Ver publicación</button>` : ''}
+                        ${listingId ? `<button class="btn-secondary ghost" onclick="showListingDetail('${listingId}','', '${listingImage || ''}')">Ver publicación</button>` : ''}
                     </div>
                 </div>
             `;
