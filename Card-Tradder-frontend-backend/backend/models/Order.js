@@ -49,4 +49,8 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+orderSchema.index({ buyerId: 1, createdAt: -1 });
+orderSchema.index({ sellerId: 1, createdAt: -1 });
+orderSchema.index({ type: 1, status: 1, reservationExpiresAt: 1 });
+
 module.exports = mongoose.model('Order', orderSchema);

@@ -31,4 +31,8 @@ const listingSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+listingSchema.index({ status: 1, isActive: 1, createdAt: -1 });
+listingSchema.index({ sellerId: 1, createdAt: -1 });
+listingSchema.index({ cardId: 1, status: 1 });
+
 module.exports = mongoose.model('Listing', listingSchema);
