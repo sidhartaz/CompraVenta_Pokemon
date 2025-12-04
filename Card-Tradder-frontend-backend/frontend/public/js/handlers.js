@@ -19,10 +19,10 @@
                 const data = await res.json();
                 
                 if(res.ok) {
-                    alert('✅ Registro exitoso. Ahora inicia sesión.');
+                    alert('Registro exitoso. Ahora inicia sesión.');
                     toggleAuth('login');
                 } else {
-                    alert('❌ Error: ' + data.message);
+                    alert('Error: ' + data.message);
                 }
             } catch (error) {
                 console.error(error);
@@ -77,11 +77,11 @@
                         persistSession(data.token, data.user);
                         enterApp(data.user);
                     } else {
-                        alert('❌ Error: Respuesta inválida del servidor. Intenta nuevamente.');
+                        alert(' Error: Respuesta inválida del servidor. Intenta nuevamente.');
                     }
                 } else {
                     const message = data?.message || data?.error || res.statusText || 'Error del servidor';
-                    alert('❌ Error: ' + message);
+                    alert(' Error: ' + message);
                 }
             } catch (error) {
                 console.error(error);
@@ -135,9 +135,9 @@
                     }
 
                     toggleProfileModal(false);
-                    alert('✅ Perfil actualizado.');
+                    alert(' Perfil actualizado.');
                 } else {
-                    alert('❌ Error: ' + (data.message || 'No se pudo actualizar el perfil'));
+                    alert(' Error: ' + (data.message || 'No se pudo actualizar el perfil'));
                 }
             } catch (error) {
                 console.error('Error al actualizar perfil', error);
@@ -185,7 +185,7 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    alert(isEditing ? '✅ Publicación actualizada.' : '✅ Publicación enviada a revisión.');
+                    alert(isEditing ? ' Publicación actualizada.' : ' Publicación enviada a revisión.');
                     resetListingForm();
                     toggleModal(false);
                     loadSellerListings();
@@ -194,7 +194,7 @@
                     loadPublicationsBoard();
                     loadOrderHistory();
                 } else {
-                    alert('❌ Error: ' + (data.message || 'No se pudo crear la publicación'));
+                    alert(' Error: ' + (data.message || 'No se pudo crear la publicación'));
                 }
             } catch (error) {
                 console.error(error);

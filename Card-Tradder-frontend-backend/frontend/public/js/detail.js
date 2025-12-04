@@ -301,7 +301,7 @@
                         showListingDetail(listingId, '');
                     }
                 } else {
-                    alert('❌ Error: ' + (data.message || 'No se pudo crear la orden'));
+                    alert('Error: ' + (data.message || 'No se pudo crear la orden'));
                 }
             } catch (error) {
                 console.error(error);
