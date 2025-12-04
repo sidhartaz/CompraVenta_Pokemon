@@ -31,6 +31,15 @@ let sellerReservationMap = new Map();
 let sellerNotifications = [];
 let editingListingId = null;
 let listingContactCache = new Map();
+let listingPreviewCache = new Map();
+let publicationsPage = 1;
+let publicationsTotalPages = 1;
+const PUBLICATIONS_PAGE_SIZE = 12;
+let catalogPage = 1;
+let catalogTotalPages = 1;
+const CATALOG_PAGE_SIZE = 12;
+let lastSearchQuery = '';
+let catalogMode = 'listings';
 
 function renderProfileInfo(user) {
     if (!user) return;
@@ -67,6 +76,12 @@ function clearPersistedSession() {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(CURRENT_USER_KEY);
     listingContactCache = new Map();
+}
+
+function cacheListingPreview(listingId, image) {
+    if (!listingId || !image) return;
+    const key = listingId.toString();
+    listingPreviewCache.set(key, image);
 }
 
 function getStoredSession() {
@@ -110,6 +125,20 @@ function apiFetch(url, options = {}) {
         headers['Authorization'] = 'Bearer ' + authToken;
     }
     return fetch(url, { ...options, headers });
+}
+
+function normalizeListingsPayload(payload) {
+    const items = Array.isArray(payload) ? payload : payload.items || payload.listings || [];
+    const pagination = Array.isArray(payload)
+        ? { total: items.length, page: 1, pageSize: items.length, totalPages: 1 }
+        : payload.pagination || {
+            total: payload.total ?? items.length,
+            page: 1,
+            pageSize: items.length,
+            totalPages: 1,
+        };
+
+    return { items, pagination };
 }
 
 function formatDate(dateString) {
@@ -685,7 +714,7 @@ function showView(viewName, element) {
 
     if (viewName === 'catalog') {
         const query = document.getElementById('searchInput')?.value || '';
-        if (!query) loadCatalogListings();
+        if (!query) loadCatalogListings(catalogPage);
     }
 
     if (viewName === 'history') {
@@ -788,14 +817,15 @@ async function loadHomeListings() {
 
     try {
         const res = await fetch('/api/listings');
-        const data = await res.json();
+        const payload = await res.json();
+        const { items } = normalizeListingsPayload(payload);
 
-        if (!Array.isArray(data) || data.length === 0) {
+        if (!items.length) {
             container.innerHTML = '<p>No hay publicaciones aprobadas.</p>';
             return;
         }
 
-        const latest = data.slice(0, 4);
+        const latest = items.slice(0, 4);
         container.innerHTML = latest.map(renderListingCard).join('');
     } catch (err) {
         console.error(err);
@@ -803,50 +833,208 @@ async function loadHomeListings() {
     }
 }
 
-async function loadCatalogListings() {
+function updateCatalogPagination(pagination = {}) {
+    const pagesLabel = document.getElementById('catalog-pages');
+    const prevBtn = document.getElementById('catalog-prev');
+    const nextBtn = document.getElementById('catalog-next');
+
+    catalogTotalPages = Math.max(pagination.totalPages || 1, 1);
+    catalogPage = Math.min(Math.max(pagination.page || 1, 1), catalogTotalPages);
+
+    if (pagesLabel) {
+        pagesLabel.textContent = `Página ${catalogPage} de ${catalogTotalPages}`;
+    }
+
+    if (prevBtn) {
+        prevBtn.disabled = catalogPage <= 1;
+    }
+
+    if (nextBtn) {
+        nextBtn.disabled = catalogPage >= catalogTotalPages;
+    }
+}
+
+function renderSearchResultCard(item) {
+    const card = item.card || {};
+    const listing = (item.listings || [])[0] || null;
+
+    const listingId = listing?.id || '';
+    const targetCardId = listing?.cardId || card.id || '';
+    const displayName = listing?.name || card.name || listing?.cardId || 'Publicación';
+    const coverImage = listing?.imageData || card.images?.large || 'black.jpg';
+    const priceLabel = listing ? "$" + listing.price : "Sin vendedores";
+
+    return `
+        <div class="market-card" onclick="showListingDetail('${listingId}','${targetCardId}')">
+            <div class="market-img-box">
+                <img src="${coverImage}" alt="${displayName}" onerror="this.src='black.jpg'">
+            </div>
+            <div class="market-info">
+                <h4>${displayName}</h4>
+                <span class="market-price">
+                    ${priceLabel}
+                </span>
+            </div>
+        </div>
+    `;
+}
+
+function renderSearchResults(container, results = []) {
+    container.innerHTML = results.map(renderSearchResultCard).join('');
+}
+
+async function loadCatalogListings(page = 1) {
     const container = document.getElementById('resultsContainer');
     if (!container) return;
+    catalogMode = 'listings';
+    lastSearchQuery = '';
+    catalogPage = page;
     container.innerHTML = '<p>Cargando catálogo...</p>';
 
     try {
-        const res = await fetch('/api/listings');
-        const data = await res.json();
+        const res = await fetch(`/api/listings?page=${page}&limit=${CATALOG_PAGE_SIZE}`);
+        const payload = await res.json();
+        const { items, pagination } = normalizeListingsPayload(payload);
 
-        if (!Array.isArray(data) || data.length === 0) {
+        updateCatalogPagination(pagination);
+
+        if (!items.length) {
             container.innerHTML = '<p>No hay publicaciones activas.</p>';
             return;
         }
 
-        container.innerHTML = data.map(renderListingCard).join('');
+        container.innerHTML = items.map(renderListingCard).join('');
     } catch (err) {
         console.error(err);
         container.innerHTML = '<p>Error cargando catálogo.</p>';
     }
 }
 
-async function loadPublicationsBoard() {
+async function loadSearchResults(query, page = 1) {
+    const container = document.getElementById('resultsContainer');
+    if (!container) return;
+
+    catalogMode = 'search';
+    lastSearchQuery = query;
+    catalogPage = page;
+    container.innerHTML = page > 1 ? '<p>Cargando resultados...</p>' : '<p>Buscando...</p>';
+
+    try {
+        const res = await fetch(`/api/cards/search?q=${encodeURIComponent(query)}&page=${page}&limit=${CATALOG_PAGE_SIZE}`);
+        const data = await res.json();
+        const pagination = data.pagination || { page, totalPages: 1, total: data.results?.length || 0 };
+
+        updateCatalogPagination(pagination);
+
+        if (!data.results || data.results.length === 0) {
+            container.innerHTML = '<p>No se encontraron cartas.</p>';
+            return;
+        }
+
+        renderSearchResults(container, data.results);
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = '<p>Error buscando cartas.</p>';
+    }
+}
+
+function goToCatalogPage(targetPage) {
+    if (catalogMode === 'search' && lastSearchQuery) {
+        loadSearchResults(lastSearchQuery, targetPage);
+    } else {
+        loadCatalogListings(targetPage);
+    }
+}
+
+function bindCatalogPaginationControls() {
+    const prevBtn = document.getElementById('catalog-prev');
+    const nextBtn = document.getElementById('catalog-next');
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (catalogPage > 1) {
+                goToCatalogPage(catalogPage - 1);
+            }
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (catalogPage < catalogTotalPages) {
+                goToCatalogPage(catalogPage + 1);
+            }
+        });
+    }
+}
+
+function updatePublicationsPagination(pagination = {}) {
+    const pagesLabel = document.getElementById('publications-pages');
+    const prevBtn = document.getElementById('publications-prev');
+    const nextBtn = document.getElementById('publications-next');
+
+    publicationsTotalPages = Math.max(pagination.totalPages || 1, 1);
+    publicationsPage = Math.min(Math.max(pagination.page || 1, 1), publicationsTotalPages);
+
+    if (pagesLabel) {
+        pagesLabel.textContent = `Página ${publicationsPage} de ${publicationsTotalPages}`;
+    }
+
+    if (prevBtn) {
+        prevBtn.disabled = publicationsPage <= 1;
+    }
+
+    if (nextBtn) {
+        nextBtn.disabled = publicationsPage >= publicationsTotalPages;
+    }
+}
+
+async function loadPublicationsBoard(page = 1) {
     const container = document.getElementById('publications-list');
     if (!container) return;
     container.innerHTML = '<p class="subtext">Cargando publicaciones...</p>';
 
     try {
-        const res = await fetch('/api/listings');
-        const data = await res.json();
+        const res = await fetch(`/api/listings?page=${page}&limit=${PUBLICATIONS_PAGE_SIZE}`);
+        const payload = await res.json();
+        const { items, pagination } = normalizeListingsPayload(payload);
 
         const counter = document.getElementById('publications-count');
-        if (counter) counter.textContent = Array.isArray(data) ? data.length : 0;
+        if (counter) counter.textContent = pagination.total || items.length;
 
-        if (!Array.isArray(data) || data.length === 0) {
+        updatePublicationsPagination(pagination);
+
+        if (!items.length) {
             container.innerHTML = '<p>No hay publicaciones activas.</p>';
             return;
         }
 
-        container.innerHTML = data.map(renderPublicationCard).join('');
+        container.innerHTML = items.map(renderPublicationCard).join('');
         clearCountdowns();
         activateCountdowns(container);
     } catch (err) {
         console.error(err);
         container.innerHTML = '<p>Error cargando publicaciones.</p>';
+    }
+}
+
+function bindPublicationsPaginationControls() {
+    const prevBtn = document.getElementById('publications-prev');
+    const nextBtn = document.getElementById('publications-next');
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (publicationsPage > 1) {
+                loadPublicationsBoard(publicationsPage - 1);
+            }
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (publicationsPage < publicationsTotalPages) {
+                loadPublicationsBoard(publicationsPage + 1);
+            }
+        });
     }
 }
 
@@ -1505,7 +1693,10 @@ function renderStatusBadge(status) {
 
 function renderHistoryItem(order) {
     const cardName = order.card?.name || order.listingId?.description || order.listingId?.cardId || 'Carta';
+    const listingId = order.listingId?._id || order.listingId?.id || order.listingId;
     const image = order.listingId?.imageData || order.card?.images?.small || 'black.jpg';
+
+    cacheListingPreview(listingId, order.listingId?.imageData);
     const counterpart = currentUser && order.buyerId && order.sellerId
         ? (currentUser.id === (order.buyerId._id || order.buyerId) ? order.sellerId : order.buyerId)
         : null;
@@ -1608,8 +1799,9 @@ function renderClientReservationCard(order) {
     const listing = order.listingId || {};
     const listingId = listing._id || listing.id || order.listingId;
     const seller = listing.sellerId || order.sellerId || {};
-    const cardName = listing.description || listing.cardId || order.card?.name || 'Publicación reservada';
-    const image = listing.imageData || listing.image || listing.card?.images?.small || 'black.jpg';
+    const cardName = listing.name || listing.description || listing.cardId || order.card?.name || 'Publicación reservada';
+    const listingImage = listing.imageData || listing.image;
+    const image = listingImage || listing.card?.images?.small || order.card?.images?.small || 'black.jpg';
     const status = order.status || 'pendiente';
     const expiresAt = order.reservationExpiresAt || listing.reservedUntil;
     const createdLabel = order.createdAt ? formatDate(order.createdAt) : '';
@@ -1619,6 +1811,8 @@ function renderClientReservationCard(order) {
     const contactLink = contact ? `https://wa.me/${contact.replace(/^\\+/, '')}` : '';
     const contactAllowed = ['reservada', 'pagada'].includes(status);
     const showContact = contactAllowed && contact;
+
+    cacheListingPreview(listingId, listingImage);
 
     return `
         <div class="reservation-card">
@@ -1646,7 +1840,7 @@ function renderClientReservationCard(order) {
                 </div>
             </div>
             <div class="reservation-actions">
-                ${listingId ? `<button class="btn-secondary ghost" onclick="showListingDetail('${listingId}','')">Ver publicación</button>` : ''}
+                ${listingId ? `<button class="btn-secondary ghost" onclick="showListingDetail('${listingId}','', '${listingImage || ''}')">Ver publicación</button>` : ''}
             </div>
         </div>
     `;
@@ -1787,6 +1981,13 @@ async function showOrderDetail(orderId) {
         }
 
         const order = data.order;
+        const listing = order.listingId || {};
+        const listingId = listing._id || listing.id || order.listingId;
+        const listingImage = listing.imageData || listing.image;
+        const cachedPreview = listingPreviewCache.get(listingId?.toString());
+        const coverImage = listingImage || cachedPreview || order.card?.images?.large || 'black.jpg';
+
+        cacheListingPreview(listingId, listingImage || cachedPreview);
         const steps = (order.history || []).map(step => `
             <div class="history-step">
                 <div class="history-step-header">
@@ -1804,6 +2005,9 @@ async function showOrderDetail(orderId) {
 
         body.innerHTML = `
             <div class="order-detail">
+                <div class="order-detail__image">
+                    <img src="${coverImage}" alt="${order.listingId?.name || order.card?.name || 'Publicación'}" onerror="this.src='black.jpg'">
+                </div>
                 <p><strong>Tipo:</strong> ${order.type === 'reserva' ? 'Reserva' : 'Compra'}</p>
                 <p><strong>Estado:</strong> ${order.status}</p>
                 <p><strong>Precio:</strong> $${order.total || order.listingId?.price || ''}</p>
@@ -1823,59 +2027,24 @@ async function showOrderDetail(orderId) {
 // =============== BUSCAR CARTAS ====================
 async function searchCards() {
     const query = document.getElementById("searchInput").value.trim();
-    const container = document.getElementById("resultsContainer");
 
     if (!query) {
+        catalogPage = 1;
         loadCatalogListings();
         return;
     }
 
-    container.innerHTML = "<p>Buscando...</p>";
-
-    try {
-        const res = await fetch(`/api/cards/search?q=${query}`);
-        const data = await res.json();
-
-        if (!data.results || data.results.length === 0) {
-            container.innerHTML = "<p>No se encontraron cartas.</p>";
-            return;
-        }
-
-        container.innerHTML = "";
-        data.results.forEach(item => {
-            const card = item.card || {};
-            const listing = item.listings[0] || null;
-
-            const listingId = listing?.id || '';
-            const targetCardId = listing?.cardId || card.id || '';
-            const displayName = listing?.name || card.name || listing?.cardId || 'Publicación';
-            const coverImage = listing?.imageData || card.images?.large || 'black.jpg';
-            const priceLabel = listing ? "$" + listing.price : "Sin vendedores";
-
-            container.innerHTML += `
-                <div class="market-card" onclick="showListingDetail('${listingId}','${targetCardId}')">
-                    <div class="market-img-box">
-                        <img src="${coverImage}" alt="${displayName}" onerror="this.src='black.jpg'">
-                    </div>
-                    <div class="market-info">
-                        <h4>${displayName}</h4>
-                        <span class="market-price">
-                            ${priceLabel}
-                        </span>
-                    </div>
-                </div>
-            `;
-        });
-    } catch (err) {
-        console.error(err);
-        container.innerHTML = "<p>Error buscando cartas.</p>";
-    }
+    await loadSearchResults(query, 1);
 }
 
 // =============== DETALLE DE CARTA =================
-async function showListingDetail(listingId, cardId) {
+async function showListingDetail(listingId, cardId, previewImage = '') {
     if (!listingId && cardId) {
         return showCardDetail(cardId);
+    }
+
+    if (listingId && previewImage) {
+        cacheListingPreview(listingId, previewImage);
     }
 
     showSection('view-card-detail');
@@ -1894,6 +2063,7 @@ async function showListingDetail(listingId, cardId) {
         const listing = await listingRes.json();
         const cardData = cardRes.ok ? await cardRes.json() : {};
         const card = cardData.card || null;
+        const cachedPreview = listingPreviewCache.get(listingId?.toString());
 
         if (!listingRes.ok) {
             container.innerHTML = `<p>${listing.message || 'No se pudo cargar la publicación.'}</p>`;
@@ -1904,7 +2074,7 @@ async function showListingDetail(listingId, cardId) {
         const isReserved = isListingReserved(listing);
         const available = listing.status === 'aprobada' && listing.isActive !== false && !isReserved;
         const availabilityLabel = isReserved ? 'Reservada' : available ? 'Disponible' : 'No disponible';
-        const coverImage = listing.imageData || card?.images?.large || 'black.jpg';
+        const coverImage = listing.imageData || cachedPreview || card?.images?.large || 'black.jpg';
         const displayName = listing.name || card?.name || listing.cardId;
         const isClient = currentUser && currentUser.role === 'cliente';
         const statusLabel = listing.status === 'aprobada'
@@ -2165,6 +2335,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         alert('No se pudieron cargar los recursos del sitio. Recarga la página.');
         return;
     }
+
+    bindPublicationsPaginationControls();
+    bindCatalogPaginationControls();
 
     const { token: savedToken } = getStoredSession();
 

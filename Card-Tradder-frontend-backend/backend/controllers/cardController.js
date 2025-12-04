@@ -4,20 +4,29 @@ const { client: redisClient } = require('../redisClient');
 
 async function searchCards(req, res) {
   try {
-    const query = req.query.q || '';
+    const query = (req.query.q || '').trim();
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
 
     if (!query) {
-      return res.json({ results: [] });
+      return res.json({
+        results: [],
+        pagination: { page: 1, totalPages: 1, total: 0, limit },
+      });
     }
 
     const regex = { $regex: query, $options: 'i' };
 
-    const cards = await Card.find({ name: regex }).limit(20).lean();
+    const cards = await Card.find({ name: regex })
+      .select('id name images set')
+      .sort({ name: 1 })
+      .lean();
     const cardIds = cards.map((card) => card.id);
 
     const listingsForCards = await Listing.find({
       status: 'aprobada',
       cardId: { $in: cardIds },
+      isActive: { $ne: false },
     })
       .populate('sellerId', 'name email role')
       .lean();
@@ -46,7 +55,7 @@ async function searchCards(req, res) {
       });
     }
 
-    const listingsByName = await Listing.find({ status: 'aprobada', name: regex })
+    const listingsByName = await Listing.find({ status: 'aprobada', name: regex, isActive: { $ne: false } })
       .populate('sellerId', 'name email role')
       .lean();
 
@@ -86,7 +95,15 @@ async function searchCards(req, res) {
       });
     }
 
-    const responseBody = { results: Array.from(resultsMap.values()) };
+    const allResults = Array.from(resultsMap.values());
+    const total = allResults.length;
+    const totalPages = Math.max(Math.ceil(total / limit), 1);
+    const safePage = Math.min(page, totalPages);
+    const start = (safePage - 1) * limit;
+    const responseBody = {
+      results: allResults.slice(start, start + limit),
+      pagination: { page: safePage, totalPages, total, limit },
+    };
 
     if (searchListingIds.size) {
       try {

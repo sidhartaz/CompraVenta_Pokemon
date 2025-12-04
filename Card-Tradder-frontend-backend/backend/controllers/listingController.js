@@ -7,6 +7,13 @@ const { generateUniqueSlug } = require('../utils/slug');
 const { stripContactInfo } = require('../utils/listings');
 const { expireOldReservations } = require('../utils/reservations');
 
+function getPagination(query = {}, { defaultLimit = 50, maxLimit = 100 } = {}) {
+  const page = Math.max(parseInt(query.page, 10) || 1, 1);
+  const pageSize = Math.min(Math.max(parseInt(query.limit, 10) || defaultLimit, 1), maxLimit);
+
+  return { page, pageSize, skip: (page - 1) * pageSize };
+}
+
 async function getApprovedListings(req, res) {
   try {
     await expireOldReservations(Order, Listing);
@@ -16,9 +23,17 @@ async function getApprovedListings(req, res) {
       filter.status = req.query.status;
     }
 
-    const listings = await Listing.find(filter)
-      .populate('sellerId', 'name email role')
-      .lean();
+    const { page, pageSize, skip } = getPagination(req.query, { defaultLimit: 48, maxLimit: 200 });
+
+    const [listings, total] = await Promise.all([
+      Listing.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(pageSize)
+        .populate('sellerId', 'name email role')
+        .lean(),
+      Listing.countDocuments(filter),
+    ]);
 
     const cardIds = [...new Set(listings.map((lst) => lst.cardId).filter(Boolean))];
     const cards = await Card.find({ id: { $in: cardIds } }).lean();
@@ -29,7 +44,15 @@ async function getApprovedListings(req, res) {
       card: cardMap.get(lst.cardId) || null,
     }));
 
-    return res.json(enriched);
+    return res.json({
+      items: enriched,
+      pagination: {
+        total,
+        page,
+        pageSize,
+        totalPages: Math.max(Math.ceil(total / pageSize), 1),
+      },
+    });
   } catch (error) {
     console.error('Error en GET /api/listings:', error);
     return res.status(500).json({ message: 'Error del servidor' });
