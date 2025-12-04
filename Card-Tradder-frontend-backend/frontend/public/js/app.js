@@ -34,6 +34,11 @@ let listingContactCache = new Map();
 let publicationsPage = 1;
 let publicationsTotalPages = 1;
 const PUBLICATIONS_PAGE_SIZE = 12;
+let catalogPage = 1;
+let catalogTotalPages = 1;
+const CATALOG_PAGE_SIZE = 12;
+let lastSearchQuery = '';
+let catalogMode = 'listings';
 
 function renderProfileInfo(user) {
     if (!user) return;
@@ -702,7 +707,7 @@ function showView(viewName, element) {
 
     if (viewName === 'catalog') {
         const query = document.getElementById('searchInput')?.value || '';
-        if (!query) loadCatalogListings();
+        if (!query) loadCatalogListings(catalogPage);
     }
 
     if (viewName === 'history') {
@@ -821,15 +826,70 @@ async function loadHomeListings() {
     }
 }
 
-async function loadCatalogListings() {
+function updateCatalogPagination(pagination = {}) {
+    const pagesLabel = document.getElementById('catalog-pages');
+    const prevBtn = document.getElementById('catalog-prev');
+    const nextBtn = document.getElementById('catalog-next');
+
+    catalogTotalPages = Math.max(pagination.totalPages || 1, 1);
+    catalogPage = Math.min(Math.max(pagination.page || 1, 1), catalogTotalPages);
+
+    if (pagesLabel) {
+        pagesLabel.textContent = `Página ${catalogPage} de ${catalogTotalPages}`;
+    }
+
+    if (prevBtn) {
+        prevBtn.disabled = catalogPage <= 1;
+    }
+
+    if (nextBtn) {
+        nextBtn.disabled = catalogPage >= catalogTotalPages;
+    }
+}
+
+function renderSearchResultCard(item) {
+    const card = item.card || {};
+    const listing = (item.listings || [])[0] || null;
+
+    const listingId = listing?.id || '';
+    const targetCardId = listing?.cardId || card.id || '';
+    const displayName = listing?.name || card.name || listing?.cardId || 'Publicación';
+    const coverImage = listing?.imageData || card.images?.large || 'black.jpg';
+    const priceLabel = listing ? "$" + listing.price : "Sin vendedores";
+
+    return `
+        <div class="market-card" onclick="showListingDetail('${listingId}','${targetCardId}')">
+            <div class="market-img-box">
+                <img src="${coverImage}" alt="${displayName}" onerror="this.src='black.jpg'">
+            </div>
+            <div class="market-info">
+                <h4>${displayName}</h4>
+                <span class="market-price">
+                    ${priceLabel}
+                </span>
+            </div>
+        </div>
+    `;
+}
+
+function renderSearchResults(container, results = []) {
+    container.innerHTML = results.map(renderSearchResultCard).join('');
+}
+
+async function loadCatalogListings(page = 1) {
     const container = document.getElementById('resultsContainer');
     if (!container) return;
+    catalogMode = 'listings';
+    lastSearchQuery = '';
+    catalogPage = page;
     container.innerHTML = '<p>Cargando catálogo...</p>';
 
     try {
-        const res = await fetch('/api/listings');
+        const res = await fetch(`/api/listings?page=${page}&limit=${CATALOG_PAGE_SIZE}`);
         const payload = await res.json();
-        const { items } = normalizeListingsPayload(payload);
+        const { items, pagination } = normalizeListingsPayload(payload);
+
+        updateCatalogPagination(pagination);
 
         if (!items.length) {
             container.innerHTML = '<p>No hay publicaciones activas.</p>';
@@ -840,6 +900,63 @@ async function loadCatalogListings() {
     } catch (err) {
         console.error(err);
         container.innerHTML = '<p>Error cargando catálogo.</p>';
+    }
+}
+
+async function loadSearchResults(query, page = 1) {
+    const container = document.getElementById('resultsContainer');
+    if (!container) return;
+
+    catalogMode = 'search';
+    lastSearchQuery = query;
+    catalogPage = page;
+    container.innerHTML = page > 1 ? '<p>Cargando resultados...</p>' : '<p>Buscando...</p>';
+
+    try {
+        const res = await fetch(`/api/cards/search?q=${encodeURIComponent(query)}&page=${page}&limit=${CATALOG_PAGE_SIZE}`);
+        const data = await res.json();
+        const pagination = data.pagination || { page, totalPages: 1, total: data.results?.length || 0 };
+
+        updateCatalogPagination(pagination);
+
+        if (!data.results || data.results.length === 0) {
+            container.innerHTML = '<p>No se encontraron cartas.</p>';
+            return;
+        }
+
+        renderSearchResults(container, data.results);
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = '<p>Error buscando cartas.</p>';
+    }
+}
+
+function goToCatalogPage(targetPage) {
+    if (catalogMode === 'search' && lastSearchQuery) {
+        loadSearchResults(lastSearchQuery, targetPage);
+    } else {
+        loadCatalogListings(targetPage);
+    }
+}
+
+function bindCatalogPaginationControls() {
+    const prevBtn = document.getElementById('catalog-prev');
+    const nextBtn = document.getElementById('catalog-next');
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (catalogPage > 1) {
+                goToCatalogPage(catalogPage - 1);
+            }
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (catalogPage < catalogTotalPages) {
+                goToCatalogPage(catalogPage + 1);
+            }
+        });
     }
 }
 
@@ -1887,53 +2004,14 @@ async function showOrderDetail(orderId) {
 // =============== BUSCAR CARTAS ====================
 async function searchCards() {
     const query = document.getElementById("searchInput").value.trim();
-    const container = document.getElementById("resultsContainer");
 
     if (!query) {
+        catalogPage = 1;
         loadCatalogListings();
         return;
     }
 
-    container.innerHTML = "<p>Buscando...</p>";
-
-    try {
-        const res = await fetch(`/api/cards/search?q=${query}`);
-        const data = await res.json();
-
-        if (!data.results || data.results.length === 0) {
-            container.innerHTML = "<p>No se encontraron cartas.</p>";
-            return;
-        }
-
-        container.innerHTML = "";
-        data.results.forEach(item => {
-            const card = item.card || {};
-            const listing = item.listings[0] || null;
-
-            const listingId = listing?.id || '';
-            const targetCardId = listing?.cardId || card.id || '';
-            const displayName = listing?.name || card.name || listing?.cardId || 'Publicación';
-            const coverImage = listing?.imageData || card.images?.large || 'black.jpg';
-            const priceLabel = listing ? "$" + listing.price : "Sin vendedores";
-
-            container.innerHTML += `
-                <div class="market-card" onclick="showListingDetail('${listingId}','${targetCardId}')">
-                    <div class="market-img-box">
-                        <img src="${coverImage}" alt="${displayName}" onerror="this.src='black.jpg'">
-                    </div>
-                    <div class="market-info">
-                        <h4>${displayName}</h4>
-                        <span class="market-price">
-                            ${priceLabel}
-                        </span>
-                    </div>
-                </div>
-            `;
-        });
-    } catch (err) {
-        console.error(err);
-        container.innerHTML = "<p>Error buscando cartas.</p>";
-    }
+    await loadSearchResults(query, 1);
 }
 
 // =============== DETALLE DE CARTA =================
@@ -2231,6 +2309,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     bindPublicationsPaginationControls();
+    bindCatalogPaginationControls();
 
     const { token: savedToken } = getStoredSession();
 
