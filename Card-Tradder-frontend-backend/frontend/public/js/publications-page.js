@@ -4,8 +4,16 @@ const pagesLabel = document.getElementById('all-publications-pages');
 const prevBtn = document.getElementById('all-publications-prev');
 const nextBtn = document.getElementById('all-publications-next');
 
-let currentPage = 1;
+const urlParams = new URLSearchParams(window.location.search);
+let currentPage = Math.max(parseInt(urlParams.get('page'), 10) || 1, 1);
 const pageSize = 24;
+
+function updateUrlPage(page) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('page', page);
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', newUrl);
+}
 
 function normalizeListingsPayload(payload) {
     const items = Array.isArray(payload) ? payload : payload.items || payload.listings || [];
@@ -99,6 +107,8 @@ function updatePagination(pagination) {
     if (nextBtn) {
         nextBtn.disabled = currentPage >= totalPages;
     }
+
+    updateUrlPage(currentPage);
 }
 
 async function loadPublications(page = 1) {
@@ -134,5 +144,5 @@ nextBtn?.addEventListener('click', () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    loadPublications(1);
+    loadPublications(currentPage);
 });
