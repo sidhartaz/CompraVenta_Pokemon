@@ -31,6 +31,9 @@ let sellerReservationMap = new Map();
 let sellerNotifications = [];
 let editingListingId = null;
 let listingContactCache = new Map();
+let publicationsPage = 1;
+let publicationsTotalPages = 1;
+const PUBLICATIONS_PAGE_SIZE = 12;
 
 function renderProfileInfo(user) {
     if (!user) return;
@@ -840,18 +843,41 @@ async function loadCatalogListings() {
     }
 }
 
-async function loadPublicationsBoard() {
+function updatePublicationsPagination(pagination = {}) {
+    const pagesLabel = document.getElementById('publications-pages');
+    const prevBtn = document.getElementById('publications-prev');
+    const nextBtn = document.getElementById('publications-next');
+
+    publicationsTotalPages = Math.max(pagination.totalPages || 1, 1);
+    publicationsPage = Math.min(Math.max(pagination.page || 1, 1), publicationsTotalPages);
+
+    if (pagesLabel) {
+        pagesLabel.textContent = `Página ${publicationsPage} de ${publicationsTotalPages}`;
+    }
+
+    if (prevBtn) {
+        prevBtn.disabled = publicationsPage <= 1;
+    }
+
+    if (nextBtn) {
+        nextBtn.disabled = publicationsPage >= publicationsTotalPages;
+    }
+}
+
+async function loadPublicationsBoard(page = 1) {
     const container = document.getElementById('publications-list');
     if (!container) return;
     container.innerHTML = '<p class="subtext">Cargando publicaciones...</p>';
 
     try {
-        const res = await fetch('/api/listings');
+        const res = await fetch(`/api/listings?page=${page}&limit=${PUBLICATIONS_PAGE_SIZE}`);
         const payload = await res.json();
         const { items, pagination } = normalizeListingsPayload(payload);
 
         const counter = document.getElementById('publications-count');
         if (counter) counter.textContent = pagination.total || items.length;
+
+        updatePublicationsPagination(pagination);
 
         if (!items.length) {
             container.innerHTML = '<p>No hay publicaciones activas.</p>';
@@ -864,6 +890,27 @@ async function loadPublicationsBoard() {
     } catch (err) {
         console.error(err);
         container.innerHTML = '<p>Error cargando publicaciones.</p>';
+    }
+}
+
+function bindPublicationsPaginationControls() {
+    const prevBtn = document.getElementById('publications-prev');
+    const nextBtn = document.getElementById('publications-next');
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (publicationsPage > 1) {
+                loadPublicationsBoard(publicationsPage - 1);
+            }
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (publicationsPage < publicationsTotalPages) {
+                loadPublicationsBoard(publicationsPage + 1);
+            }
+        });
     }
 }
 
@@ -2182,6 +2229,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         alert('No se pudieron cargar los recursos del sitio. Recarga la página.');
         return;
     }
+
+    bindPublicationsPaginationControls();
 
     const { token: savedToken } = getStoredSession();
 
