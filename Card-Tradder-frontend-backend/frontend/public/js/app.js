@@ -1790,7 +1790,12 @@ function renderClientReservationCard(order) {
     const listingId = listing._id || listing.id || order.listingId;
     const seller = listing.sellerId || order.sellerId || {};
     const cardName = listing.description || listing.cardId || order.card?.name || 'Publicación reservada';
-    const image = listing.imageData || listing.image || listing.card?.images?.small || 'black.jpg';
+    const image =
+        listing.imageData ||
+        listing.image ||
+        listing.card?.images?.small ||
+        order.card?.images?.small ||
+        'black.jpg';
     const status = order.status || 'pendiente';
     const expiresAt = order.reservationExpiresAt || listing.reservedUntil;
     const createdLabel = order.createdAt ? formatDate(order.createdAt) : '';

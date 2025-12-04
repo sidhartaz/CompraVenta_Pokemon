@@ -107,6 +107,13 @@ async function attachCardData(orders) {
   return orders.map((order) => ({
     ...order,
     card: cardMap.get(order.cardId) || null,
+    listingId:
+      order.listingId && typeof order.listingId === 'object'
+        ? {
+            ...order.listingId,
+            card: order.listingId.card || cardMap.get(order.cardId) || null,
+          }
+        : order.listingId,
   }));
 }
 
