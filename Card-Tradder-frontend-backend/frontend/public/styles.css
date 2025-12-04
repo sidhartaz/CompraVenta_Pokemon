@@ -743,3 +743,52 @@ select.form-input { height: 44px; padding: 10px 16px; background-position: right
     .hero-content { max-width: 100%; }
     .hero-decoration { display: none; }
 }
+/* Publicaciones públicas */
+.publications-page-body {
+    background: #f5f7fb;
+}
+
+.publications-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px;
+    background: #0f172a;
+    color: #fff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.2);
+}
+
+.publications-topbar .logo-placeholder {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.publications-topbar .subtext {
+    color: #cbd5e1;
+    display: block;
+    margin-top: 4px;
+}
+
+.publications-page {
+    max-width: 1200px;
+    margin: 24px auto;
+    padding: 0 16px 32px;
+}
+
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.pagination-label {
+    font-weight: 600;
+    color: #475569;
+}
+
+.publication-actions.public-view {
+    justify-content: flex-start;
+}
