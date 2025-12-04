@@ -31,6 +31,7 @@ let sellerReservationMap = new Map();
 let sellerNotifications = [];
 let editingListingId = null;
 let listingContactCache = new Map();
+let listingPreviewCache = new Map();
 let publicationsPage = 1;
 let publicationsTotalPages = 1;
 const PUBLICATIONS_PAGE_SIZE = 12;
@@ -75,6 +76,12 @@ function clearPersistedSession() {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(CURRENT_USER_KEY);
     listingContactCache = new Map();
+}
+
+function cacheListingPreview(listingId, image) {
+    if (!listingId || !image) return;
+    const key = listingId.toString();
+    listingPreviewCache.set(key, image);
 }
 
 function getStoredSession() {
@@ -1802,6 +1809,8 @@ function renderClientReservationCard(order) {
     const contactAllowed = ['reservada', 'pagada'].includes(status);
     const showContact = contactAllowed && contact;
 
+    cacheListingPreview(listingId, listingImage);
+
     return `
         <div class="reservation-card">
             <div class="reservation-top">
@@ -1828,7 +1837,7 @@ function renderClientReservationCard(order) {
                 </div>
             </div>
             <div class="reservation-actions">
-                ${listingId ? `<button class="btn-secondary ghost" onclick="showListingDetail('${listingId}','')">Ver publicación</button>` : ''}
+                ${listingId ? `<button class="btn-secondary ghost" onclick="showListingDetail('${listingId}','', '${listingImage || ''}')">Ver publicación</button>` : ''}
             </div>
         </div>
     `;
@@ -2016,9 +2025,13 @@ async function searchCards() {
 }
 
 // =============== DETALLE DE CARTA =================
-async function showListingDetail(listingId, cardId) {
+async function showListingDetail(listingId, cardId, previewImage = '') {
     if (!listingId && cardId) {
         return showCardDetail(cardId);
+    }
+
+    if (listingId && previewImage) {
+        cacheListingPreview(listingId, previewImage);
     }
 
     showSection('view-card-detail');
@@ -2037,6 +2050,7 @@ async function showListingDetail(listingId, cardId) {
         const listing = await listingRes.json();
         const cardData = cardRes.ok ? await cardRes.json() : {};
         const card = cardData.card || null;
+        const cachedPreview = listingPreviewCache.get(listingId?.toString());
 
         if (!listingRes.ok) {
             container.innerHTML = `<p>${listing.message || 'No se pudo cargar la publicación.'}</p>`;
@@ -2047,7 +2061,7 @@ async function showListingDetail(listingId, cardId) {
         const isReserved = isListingReserved(listing);
         const available = listing.status === 'aprobada' && listing.isActive !== false && !isReserved;
         const availabilityLabel = isReserved ? 'Reservada' : available ? 'Disponible' : 'No disponible';
-        const coverImage = listing.imageData || card?.images?.large || 'black.jpg';
+        const coverImage = listing.imageData || cachedPreview || card?.images?.large || 'black.jpg';
         const displayName = listing.name || card?.name || listing.cardId;
         const isClient = currentUser && currentUser.role === 'cliente';
         const statusLabel = listing.status === 'aprobada'

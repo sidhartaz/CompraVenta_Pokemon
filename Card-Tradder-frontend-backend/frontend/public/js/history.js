@@ -124,6 +124,10 @@
             const contact = (listing.contactWhatsapp || '').trim();
             const contactLink = contact ? `https://wa.me/${contact.replace(/^\\+/, '')}` : '';
 
+            if (typeof cacheListingPreview === 'function') {
+                cacheListingPreview(listingId, listingImage);
+            }
+
             return `
                 <div class="reservation-card">
                     <div class="reservation-top">
@@ -148,7 +152,7 @@
                         </div>
                     </div>
                     <div class="reservation-actions">
-                        ${listingId ? `<button class="btn-secondary ghost" onclick="showListingDetail('${listingId}','')">Ver publicación</button>` : ''}
+                        ${listingId ? `<button class="btn-secondary ghost" onclick="showListingDetail('${listingId}','', '${listingImage || ''}')">Ver publicación</button>` : ''}
                     </div>
                 </div>
             `;
