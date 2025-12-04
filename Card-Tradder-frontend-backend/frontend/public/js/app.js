@@ -1693,7 +1693,10 @@ function renderStatusBadge(status) {
 
 function renderHistoryItem(order) {
     const cardName = order.card?.name || order.listingId?.description || order.listingId?.cardId || 'Carta';
+    const listingId = order.listingId?._id || order.listingId?.id || order.listingId;
     const image = order.listingId?.imageData || order.card?.images?.small || 'black.jpg';
+
+    cacheListingPreview(listingId, order.listingId?.imageData);
     const counterpart = currentUser && order.buyerId && order.sellerId
         ? (currentUser.id === (order.buyerId._id || order.buyerId) ? order.sellerId : order.buyerId)
         : null;
@@ -1978,6 +1981,13 @@ async function showOrderDetail(orderId) {
         }
 
         const order = data.order;
+        const listing = order.listingId || {};
+        const listingId = listing._id || listing.id || order.listingId;
+        const listingImage = listing.imageData || listing.image;
+        const cachedPreview = listingPreviewCache.get(listingId?.toString());
+        const coverImage = listingImage || cachedPreview || order.card?.images?.large || 'black.jpg';
+
+        cacheListingPreview(listingId, listingImage || cachedPreview);
         const steps = (order.history || []).map(step => `
             <div class="history-step">
                 <div class="history-step-header">
@@ -1995,6 +2005,9 @@ async function showOrderDetail(orderId) {
 
         body.innerHTML = `
             <div class="order-detail">
+                <div class="order-detail__image">
+                    <img src="${coverImage}" alt="${order.listingId?.name || order.card?.name || 'Publicación'}" onerror="this.src='black.jpg'">
+                </div>
                 <p><strong>Tipo:</strong> ${order.type === 'reserva' ? 'Reserva' : 'Compra'}</p>
                 <p><strong>Estado:</strong> ${order.status}</p>
                 <p><strong>Precio:</strong> $${order.total || order.listingId?.price || ''}</p>
