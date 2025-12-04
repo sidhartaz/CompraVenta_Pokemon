@@ -22,9 +22,9 @@ const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/cardtrader'
 
 const mongoConnection = mongoose
   .connect(mongoUri)
-  .then(() => console.log('✅ Base de Datos MongoDB conectada'))
+  .then(() => console.log('Base de Datos MongoDB conectada'))
   .catch((err) => {
-    console.error('❌ ERROR DE CONEXIÓN A MONGO DB:');
+    console.error(' ERROR DE CONEXIÓN A MONGO DB:');
     console.error('   Verifica que MongoDB esté corriendo y que la variable MONGO_URI en tu archivo .env sea correcta.');
     console.error('   Detalle:', err.message);
     process.exit(1);
@@ -46,7 +46,7 @@ app.get(/(.*)/, (req, res) => {
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+    console.log(` Servidor corriendo en http://localhost:${PORT}`);
   });
 }
 

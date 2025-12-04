@@ -10,7 +10,7 @@ const userSchema = new mongoose.Schema({
     default: 'cliente'
   },
   contactWhatsapp: { type: String },
-  isActive: { type: Boolean, default: true }, // 👈 para “eliminar” lógicamente si quieres
+  isActive: { type: Boolean, default: true }, 
   createdAt: { type: Date, default: Date.now }
 });
 

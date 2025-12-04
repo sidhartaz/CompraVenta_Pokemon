@@ -5,7 +5,7 @@ const User = require('../models/User');
 const JWT_SECRET = process.env.JWT_SECRET || 'camilo7532';
 
 async function register(req, res) {
-  console.log('📩 Registro:', req.body.email);
+  console.log('Registro:', req.body.email);
   const { name, email, password, role, contactWhatsapp } = req.body;
 
   if (!name || !email || !password) {
@@ -34,7 +34,7 @@ async function register(req, res) {
 
     await newUser.save();
 
-    console.log('✅ Usuario creado:', email);
+    console.log(' Usuario creado:', email);
     return res.status(201).json({
       message: 'Usuario registrado con éxito.',
       user: {
@@ -52,7 +52,7 @@ async function register(req, res) {
 }
 
 async function login(req, res) {
-  console.log('🔑 Login body recibido:', req.body);
+  console.log(' Login body recibido:', req.body);
 
   const { email, password } = req.body || {};
 
